@@ -24,7 +24,7 @@ class MNIST_Baseline(nn.Module):
         # Initializing the fully connected layer
         self.fc = nn.Linear(1024, 10, bias=True)
         nn.inint.kaiming_normal_(self.fc.weight)
-        nn.init.constant(self.fc.bias)
+        nn.init.constant(self.fc.bias, 0)
 
     def forward(self, x):
         hidden_1 = F.max_pool2d(F.relu(self.conv1(x)), 2, stride=2)
