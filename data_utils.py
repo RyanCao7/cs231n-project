@@ -11,21 +11,21 @@ def get_dataloader(dataset_name='MNIST', batch_sz=4, num_threads=1):
     
     Keyword arguments:
     > dataset_name -- Name of dataset to be loaded. Must be one of
-        {'MNIST', 'CIFAR-10'}
-    > batch_sz -- Batch size to be grabbed from DataLoader
+        {'MNIST', 'CIFAR-10'}.
+    > batch_sz -- Batch size to be grabbed from DataLoader.
     > num_threads -- Number of threads with which to load data.
 
-    Return value: (mnist_train_dataloader, mnist_test_dataloader)
-    > mnist_train_dataloader -- a torch.utils.data.DataLoader wrapper around
-        the MNIST training set.
-    > mnist_test_dataloader -- a torch.utils.data.DataLoader wrapper around
-        the MNIST test set.
+    Return value: (train_dataloader, test_dataloader)
+    > train_dataloader -- a torch.utils.data.DataLoader wrapper around
+        the specified dataset's training set.
+    > test_dataloader -- a torch.utils.data.DataLoader wrapper around
+        the specified dataset's test set.
     """
 
     train_set, test_set = None, None
 
+    # Downloads requested training and test sets into /datasets directory.
     if dataset_name == 'MNIST':
-        # Downloads MNIST training and test sets into /datasets directory.
         train_set = datasets.MNIST(root='./datasets', train=True, download=True, transform=None)
         test_set = datasets.MNIST(root='./datasets', train=False, download=True, transform=None)
     elif dataset_name == 'CIFAR-10':
