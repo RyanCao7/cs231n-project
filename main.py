@@ -100,6 +100,17 @@ def new_model(params):
                                 momentum=params['momentum'],
                                 weight_decay=params['weight_decay'])
 
+    # Grabs dataloaders. TODO: Prompt for val split/randomize val indices
+    params['train_dataloader'], params['val_dataloader'], params['test_dataloader'] = get_dataloader(
+        dataset_name=params['dataset'], 
+        batch_sz=params['batch_size'],
+        num_threads=params['num_threads'])
+
+    # Saves an initial copy
+    if not os.path.isdir('models/' + params['run_name']):
+        os.makedirs('models/' + params['run_name'])
+    train_utils.save_checkpoint(params, epoch=0)
+
 
 def load_model(params):
     '''
@@ -112,13 +123,14 @@ def load_model(params):
         new_model(params)
 
     user_model_choice = train_utils.input_from_list(model_folders, 'input')
+    print('user model choice:', user_model_choice)
 
     # Grabs checkpoint file from user
-    saved_checkpoint_files = glob.glob('models/' + user_model_choice + '/*')
+    saved_checkpoint_files = glob.glob(user_model_choice + '/*')
     user_checkpoint_choice = train_utils.input_from_list(saved_checkpoint_files, 'checkpoint')
 
     # Loads saved state into params
-    params = torch.load('models/' + user_model_choice + '/' + user_checkpoint_choice)
+    return torch.load(user_checkpoint_choice)
 
 
 def param_factory():
@@ -145,6 +157,7 @@ def param_factory():
     params['weight_decay'] = 1e-4
     params['print_frequency'] = 10
     params['best_val_acc'] = 0.
+    params['num_threads'] = 4
 
     # Default - checkpoint every 10 epochs
     params['save_every'] = 10
@@ -167,56 +180,56 @@ def param_factory():
     # Optimizer - THIS MUST GET CONSTRUCTED LATER
     params['optimizer'] = None
 
+    # Dataloaders
+    params['train_dataloader'], params['test_dataloader'] = None, None
+
     return params
 
-
-def main():
-    params = param_factory()
-
-    if params['seed'] is not None:
-        random.seed(params['seed'])
-        torch.manual_seed(params['seed'])
-        cudnn.deterministic = True
-        warnings.warn('You have chosen to seed training. '
-                      'This will turn on the CUDNN deterministic setting, '
-                      'which can slow down your training considerably! '
-                      'You may see unexpected behavior when restarting '
-                      'from checkpoints.')
-
-    # Simply call main_worker function
-    main_worker(params)
+def print_help():
+    print('List of commands: ')
+    print('-h: Help command. Prints this list of helpful commands!')
+    print('-q: Quit. Immediately terminates the program.')
+    print('-l: Load model. Loads a specific model/checkpoint into current program state.')
+    print('-n: New model. Copies server metadata into local computer.')
+    print('-s: State. Prints the current program state (e.g. model, epoch, params, etc.)')
+    print('-t: Train. Trains the network using the current program state.')
+    print('-e: Evaluate. Evaluates the currently loaded network.')
 
 
-def main_worker(params):
-    global best_acc1
+# TODO: Actually print useful stuff :P
+def print_state(params):
+    print('Model:', params['model'], '\n')
+    print('Epoch:', params['start_epoch'], '\n')
+    print('Optimizer:', params['optimizer'], '\n')
 
-    # TODO: Fix where the model loads from
-    # Load model here...
-    print("=> creating model '{}'".format(params['model']))
+
+def perform_training(params, evaluate=False):
+
+    if params['model'] is None:
+        print('You have no model! Please use -n to create a new model!')
+        return
 
     # Load model onto GPU if one is available
-    if params['device'] is not None:
+    if params['device'] is not torch.device('cpu'):
         print("Use GPU: {} for training".format(params['device']))
         torch.cuda.set_device(params['device'])
         params['model'] = params['model'].cuda(params['device'])
 
-    # TODO: Look this up
+    # Should make things faster if input size is consistent.
+    # https://discuss.pytorch.org/t/what-does-torch-backends-cudnn-benchmark-do/5936/6
     cudnn.benchmark = True
 
-    # Data loading code
-    train_dataloader, test_dataloader = get_dataloader(dataset_name=params['dataset'], 
-        batch_sz=params['batch_size'], num_threads=params['num_threads'])
-
-    # Evaluate once at the beginning (sanity check)
-    if params['evaluate']:
-        validate(params)
-        return
+    # Only test! TODO: Make this only test once. Have a separate `test(params)` function.`
+    # if params['evaluate']:
+    #     test(params)
 
     # Training/val loop
     for epoch in range(params['start_epoch'], params['epochs']):
+        
+        print('Training: begin epoch', epoch)
 
-        # LR Decay (TODO) - look into this
-        adjust_learning_rate(params)
+        # LR Decay - currently a stepwise decay
+        adjust_learning_rate(epoch, params)
 
         # train for one epoch
         train(params)
@@ -227,28 +240,17 @@ def main_worker(params):
         # Update best val accuracy
         params['best_val_acc'] = max(acc1, params['best_val_acc'])
 
+        # Update the starting epoch
+        params['start_epoch'] += 1
+
         # Save checkpoint every 'save_every' epochs.
-        if epoch % params['save_every'] == params['save_every']:
+        if epoch % params['save_every'] == 0:
             train_utils.save_checkpoint(params, epoch)
 
 
+# From PyTorch. TODO: Remove (but not yet)
 def load_checkpoint(params):
-    if os.path.isfile(params.resume):
-        print("=> loading checkpoint '{}'".format(params.resume))
-        checkpoint = torch.load(params.resume)
-        params['start_epoch'] = checkpoint['epoch']
-        best_acc1 = checkpoint['best_acc1']
-        if params.gpu is not None:
-            # best_acc1 may be from a checkpoint from a different GPU
-            best_acc1 = best_acc1.to(params.gpu)
-        params['model'].load_state_dict(checkpoint['state_dict'])
-        params['optimizer'].load_state_dict(checkpoint['optimizer'])
-        print("=> loaded checkpoint '{}' (epoch {})"
-                .format(params.resume, checkpoint['epoch']))
-    else:
-        print("=> no checkpoint found at '{}'".format(params.resume))
-
-        # optionally resume from a checkpoint
+    # optionally resume from a checkpoint
     if params.resume:
         if os.path.isfile(params.resume):
             print("=> loading checkpoint '{}'".format(params.resume))
@@ -265,20 +267,23 @@ def load_checkpoint(params):
         else:
             print("=> no checkpoint found at '{}'".format(params.resume))
 
-def train(train_loader, model, criterion, optimizer, epoch, params):
+
+def train(params):
+
+    # No idea what this is for now...
     batch_time = train_utils.AverageMeter('Time', ':6.3f')
     data_time = train_utils.AverageMeter('Data', ':6.3f')
     losses = train_utils.AverageMeter('Loss', ':.4e')
     top1 = train_utils.AverageMeter('Acc@1', ':6.2f')
     top5 = train_utils.AverageMeter('Acc@5', ':6.2f')
-    progress = train_utils.ProgressMeter(len(train_loader), batch_time, data_time, losses, top1,
-                             top5, prefix="Epoch: [{}]".format(epoch))
+    progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, data_time, losses, top1,
+                             top5, prefix="Epoch: [{}]".format(params['epoch']))
 
-    # switch to train mode
-    model.train()
+    # Switch to train mode. Important for dropout and batchnorm.
+    params['model'].train()
 
     end = time.time()
-    for i, (input, target) in enumerate(train_loader):
+    for i, (input, target) in enumerate(params['train_loader']):
         # measure data loading time
         data_time.update(time.time() - end)
 
@@ -287,8 +292,8 @@ def train(train_loader, model, criterion, optimizer, epoch, params):
         target = target.cuda(params.gpu, non_blocking=True)
 
         # compute output
-        output = model(input)
-        loss = criterion(output, target)
+        output = params['model'](input)
+        loss = params['criterion'](output, target)
 
         # measure accuracy and record loss
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
@@ -297,39 +302,40 @@ def train(train_loader, model, criterion, optimizer, epoch, params):
         top5.update(acc5[0], input.size(0))
 
         # compute gradient and do SGD step
-        optimizer.zero_grad()
+        params['optimizer'].zero_grad()
         loss.backward()
-        optimizer.step()
+        params['optimizer'].step()
 
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % params.print_freq == 0:
+        # Print training progress
+        if i % params['print_freq'] == 0:
             progress.print(i)
 
 
-def validate(val_loader, model, criterion, params):
+def validate(params):
     batch_time = train_utils.AverageMeter('Time', ':6.3f')
     losses = train_utils.AverageMeter('Loss', ':.4e')
     top1 = train_utils.AverageMeter('Acc@1', ':6.2f')
     top5 = train_utils.AverageMeter('Acc@5', ':6.2f')
-    progress = train_utils.ProgressMeter(len(val_loader), batch_time, losses, top1, top5,
+    progress = train_utils.ProgressMeter(len(params['val_dataloader']), batch_time, losses, top1, top5,
                              prefix='Test: ')
 
     # switch to evaluate mode
-    model.eval()
+    params['model'].eval()
 
     with torch.no_grad():
         end = time.time()
-        for i, (input, target) in enumerate(val_loader):
+        for i, (input, target) in enumerate(params['val_dataloader']):
             if params.gpu is not None:
                 input = input.cuda(params.gpu, non_blocking=True)
             target = target.cuda(params.gpu, non_blocking=True)
 
             # compute output
-            output = model(input)
-            loss = criterion(output, target)
+            output = params['model'](input)
+            loss = params['criterion'](output, target)
 
             # measure accuracy and record loss
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
@@ -341,7 +347,7 @@ def validate(val_loader, model, criterion, params):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            if i % params.print_freq == 0:
+            if i % params['print_freq'] == 0:
                 progress.print(i)
 
         # TODO: this should also be done with the ProgressMeter
@@ -351,13 +357,15 @@ def validate(val_loader, model, criterion, params):
     return top1.avg
 
 
-def adjust_learning_rate(optimizer, epoch, params):
+# TODO: Allow this to be altered
+def adjust_learning_rate(epoch, params):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = params.lr * (0.1 ** (epoch // 30))
-    for param_group in optimizer.param_groups:
+    lr = params['learning_rate'] * (0.1 ** (epoch // 30))
+    for param_group in params['optimizer'].param_groups:
         param_group['lr'] = lr
 
 
+# TODO: Test this and see if it works; if not, change it!
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.no_grad():
@@ -373,6 +381,40 @@ def accuracy(output, target, topk=(1,)):
             correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
+
+
+def main():
+    params = param_factory()
+
+    # Some error message about random seed
+    if params['seed'] is not None:
+        random.seed(params['seed'])
+        torch.manual_seed(params['seed'])
+        cudnn.deterministic = True
+        warnings.warn('You have chosen to seed training. '
+                      'This will turn on the CUDNN deterministic setting, '
+                      'which can slow down your training considerably! '
+                      'You may see unexpected behavior when restarting '
+                      'from checkpoints.')
+
+    while True:
+        user_input = input('What would you like to do? (type -h for help) -> ')
+        if user_input in ['-t', '--train', 't', 'train']:
+            perform_training(params)
+        elif user_input in ['-e', '--eval', 'e', 'eval']:
+            perform_training(params, evaluate=True)
+        elif user_input in ['-l', '--load', 'l', 'load']:
+            params = load_model(params)
+        elif user_input in ['-n', '--new', 'n', 'new']:
+            new_model(params)
+        elif user_input in ['-h', '--help', 'h', 'help']:
+            print_help()
+        elif user_input in ['-s', '--state', 's', 'state']:
+            print_state(params)
+        elif user_input in ['-q', '--quit', 'q', 'quit']:
+            exit()
+        else:
+            print('Sorry, that command doesn\'t exist (yet)!')
 
 
 if __name__ == '__main__':

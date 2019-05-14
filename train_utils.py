@@ -3,7 +3,7 @@ import torch
 # TODO: Make this save for best val accuracy epoch
 DEFAULT_SAVE_EXTENSION = '.pth.tar'
 def save_checkpoint(params, epoch):
-    torch.save(params, params['run_name'] + '_epoch_' + str(epoch) + DEFAULT_SAVE_EXTENSION)
+    torch.save(params, 'models/' + params['run_name'] + '/' + params['run_name'] + '_epoch_' + str(epoch) + DEFAULT_SAVE_EXTENSION)
     # if is_best:
     #     shutil.copyfile(filename, 'model_best.pth.tar')
 
@@ -22,10 +22,10 @@ def input_float_range(low, high, prompt):
     Returns: user_input (float)
     > user_input -- user's final input, within [low, high].
     '''
-    user_input = float(prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> ')
+    user_input = float(input(prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> '))
     if user_input < low or user_input > high:
         print('Error: must be within ' + str(low) + ' to ' + str(high) + ', inclusive.')
-        user_input = float(prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> ')
+        user_input = float(input(prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> '))
     return user_input
 
 
@@ -54,10 +54,10 @@ def input_from_range(low, high, prompt):
     Returns: user_input (int)
     > user_input -- user's final input, within [low, high].
     '''
-    user_input = int('Number of ' + prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> ')
+    user_input = int(input('Number of ' + prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> '))
     if user_input < low or user_input > high:
         print('Error: must be within ' + str(low) + ' to ' + str(high) + ', inclusive.')
-        user_input = int('Number of ' + prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> ')
+        user_input = int(input('Number of ' + prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> '))
     return user_input
 
 
@@ -77,12 +77,10 @@ def input_from_list(the_list, item, default=None):
     '''
 
     for idx, list_item in enumerate(the_list):
-        print((idx + 1) + ':', list_item)
-    input_idx = int(input('Please type the number of the ' + item + ' you wish to be loaded \
-        (enter for default) -> ')) - 1
+        print(str((idx + 1)) + ':', list_item)
+    input_idx = int(input('Please type the number of the ' + item + ' you wish to be loaded (enter for default) -> ')) - 1
     while input_idx not in range(len(the_list)):
-        input_idx = int(input('Try again. Please type the number of the ' + item + ' you wish to be loaded\
-            (enter for default) -> ')) - 1
+        input_idx = int(input('Try again. Please type the number of the ' + item + ' you wish to be loaded (enter for default) -> ')) - 1
     return the_list[input_idx]
 
 

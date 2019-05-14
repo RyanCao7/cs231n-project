@@ -331,3 +331,6 @@ ASALocalRun/
 
 # Ignores all downloaded datasets
 datasets/*
+
+# Ignores all model files
+models/*

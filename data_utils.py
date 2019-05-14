@@ -2,22 +2,27 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils, datasets
+from torch.utils.data.sampler import SubsetRandomSampler
 
 
-def get_dataloader(dataset_name='MNIST', batch_sz=4, num_threads=1):
+def get_dataloader(dataset_name='MNIST', val_split=0.2, batch_sz=4, num_threads=1, shuffle_val=True):
 
     """
     Downloads specified dataset's training and test sets into /datasets directory.
     
     Keyword arguments:
-    > dataset_name -- Name of dataset to be loaded. Must be one of
+    > dataset_name (string) -- Name of dataset to be loaded. Must be one of
         {'MNIST', 'CIFAR-10'}.
-    > batch_sz -- Batch size to be grabbed from DataLoader.
-    > num_threads -- Number of threads with which to load data.
+    > val_split (float) -- Fraction of training data to be used as validation set.
+    > batch_sz (int) -- Batch size to be grabbed from DataLoader.
+    > num_threads (int) -- Number of threads with which to load data.
+    > shuffle_val (bool) -- Whether to shuffle validation set indices.
 
     Return value: (train_dataloader, test_dataloader)
     > train_dataloader -- a torch.utils.data.DataLoader wrapper around
         the specified dataset's training set.
+    > val_dataloader -- a torch.utils.data.DataLoader wrapper around
+        the specified dataset's validation set.
     > test_dataloader -- a torch.utils.data.DataLoader wrapper around
         the specified dataset's test set.
     """
@@ -37,11 +42,25 @@ def get_dataloader(dataset_name='MNIST', batch_sz=4, num_threads=1):
     else:
         raise Exception('Error: dataset_name must be one of {\'MNIST\', \'CIFAR-10\'}.')
 
+    # Grabs train/val split
+    num_train = len(train_set)
+    indices = list(range(num_train))
+    split = int(np.floor(val_split * num_train))
+
+    if shuffle_val:
+        # np.random.seed(random_seed) # We may need this...?
+        np.random.shuffle(indices)
+
+    train_idx, valid_idx = indices[split:], indices[:split]
+    train_sampler = SubsetRandomSampler(train_idx)
+    val_sampler = SubsetRandomSampler(valid_idx)
+
     # Constructs dataloader wrappers around MNIST training and test sets
-    train_dataloader = DataLoader(train_set, batch_size=batch_sz, shuffle=True, num_workers=num_threads)
+    train_dataloader = DataLoader(train_set, batch_size=batch_sz, num_workers=num_threads, sampler=train_sampler)
+    val_dataloader = DataLoader(train_set, batch_size=batch_sz, num_workers=num_threads, sampler=val_sampler)
     test_dataloader = DataLoader(test_set, batch_size=batch_sz, shuffle=True, num_workers=num_threads)
 
-    return train_dataloader, test_dataloader
+    return train_dataloader, val_dataloader, test_dataloader
 
 
 def transform_factory(dataset_name='MNIST'):
