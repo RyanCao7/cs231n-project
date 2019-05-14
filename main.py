@@ -210,7 +210,7 @@ def perform_training(params, evaluate=False):
         return
 
     # Load model onto GPU if one is available
-    if params['device'] is not torch.device('cpu'):
+    if params['device'] != torch.device('cpu'):
         print("Use GPU: {} for training".format(params['device']))
         torch.cuda.set_device(params['device'])
         params['model'] = params['model'].cuda(params['device'])
@@ -224,7 +224,7 @@ def perform_training(params, evaluate=False):
     #     test(params)
 
     # Training/val loop
-    for epoch in range(params['start_epoch'], params['epochs']):
+    for epoch in range(params['start_epoch'], params['total_epochs']):
         
         print('Training: begin epoch', epoch)
 
@@ -232,7 +232,7 @@ def perform_training(params, evaluate=False):
         adjust_learning_rate(epoch, params)
 
         # train for one epoch
-        train(params)
+        train(epoch, params)
 
         # evaluate on validation set
         acc1 = validate(params)
@@ -268,7 +268,7 @@ def load_checkpoint(params):
             print("=> no checkpoint found at '{}'".format(params.resume))
 
 
-def train(params):
+def train(epoch, params):
 
     # No idea what this is for now...
     batch_time = train_utils.AverageMeter('Time', ':6.3f')
@@ -277,19 +277,19 @@ def train(params):
     top1 = train_utils.AverageMeter('Acc@1', ':6.2f')
     top5 = train_utils.AverageMeter('Acc@5', ':6.2f')
     progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, data_time, losses, top1,
-                             top5, prefix="Epoch: [{}]".format(params['epoch']))
+                             top5, prefix="Epoch: [{}]".format(epoch))
 
     # Switch to train mode. Important for dropout and batchnorm.
     params['model'].train()
 
     end = time.time()
-    for i, (input, target) in enumerate(params['train_loader']):
+    for i, (input, target) in enumerate(params['train_dataloader']):
         # measure data loading time
         data_time.update(time.time() - end)
 
-        if params.gpu is not None:
-            input = input.cuda(params.gpu, non_blocking=True)
-        target = target.cuda(params.gpu, non_blocking=True)
+        if params['device'] != torch.device('cpu'):
+            input = input.cuda(params['device'], non_blocking=True)
+            target = target.cuda(params['device'], non_blocking=True)
 
         # compute output
         output = params['model'](input)
@@ -311,7 +311,7 @@ def train(params):
         end = time.time()
 
         # Print training progress
-        if i % params['print_freq'] == 0:
+        if i % params['print_frequency'] == 0:
             progress.print(i)
 
 
@@ -347,7 +347,7 @@ def validate(params):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            if i % params['print_freq'] == 0:
+            if i % params['print_frequency'] == 0:
                 progress.print(i)
 
         # TODO: this should also be done with the ProgressMeter
@@ -398,6 +398,7 @@ def main():
                       'from checkpoints.')
 
     while True:
+        print('\n============== CS231n Project Console ==============')
         user_input = input('What would you like to do? (type -h for help) -> ')
         if user_input in ['-t', '--train', 't', 'train']:
             perform_training(params)
