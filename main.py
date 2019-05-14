@@ -15,9 +15,6 @@ import torch.multiprocessing as mp
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
-# For progress bars
-import tqdm
-
 # For DataLoader and transforms
 from data_utils import get_dataloader
 
@@ -194,7 +191,7 @@ def edit_state(params):
     '''
 
     if params['model'] is None:
-        print('You have no model! Please type -n to create a new model!')
+        print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
         return
 
     print('--- Editing current state ---')
@@ -234,6 +231,7 @@ def print_state(params):
         print('Total test set size:', params['batch_size'] * len(params['test_dataloader']))
     print('Print every', params['print_frequency'], 'iterations.')
     print('Save every', params['save_every'], 'epochs.')
+    print()
     
 
 def perform_training(params, evaluate=False):
@@ -247,7 +245,7 @@ def perform_training(params, evaluate=False):
     Returns: N/A
     '''
     if params['model'] is None:
-        print('You have no model! Please type -n to create a new model!')
+        print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
         return
 
     # Training/val loop
@@ -325,7 +323,7 @@ def train_one_epoch(epoch, params):
 def validate(params):
 
     if params['model'] is None:
-        print('You have no model! Please type -n to create a new model!')
+        print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
         return
 
     batch_time = train_utils.AverageMeter('Time', ':6.3f')
@@ -408,7 +406,7 @@ def print_help():
     print('-p: Print. Prints the current program state (e.g. model, epoch, params, etc.)')
     print('-t: Train. Trains the network using the current program state.')
     print('-v: Validate. Runs the currently loaded network on the validation set.')
-    print('-e: Edit. Gives the option to edit the current state.')
+    print('-e: Edit. Gives the option to edit the current state.\n')
 
 
 def main():
