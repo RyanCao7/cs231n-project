@@ -1,12 +1,51 @@
 import torch
+import constants
+
 
 # TODO: Make this save for best val accuracy epoch
 DEFAULT_SAVE_EXTENSION = '.pth.tar'
 def save_checkpoint(params, epoch):
+    print('Saving current state to', 
+        'models/' + params['run_name'] + '/' + params['run_name'] + '_epoch_' + str(epoch) + DEFAULT_SAVE_EXTENSION)
     torch.save(params, 'models/' + params['run_name'] + '/' + params['run_name'] + '_epoch_' + str(epoch) + DEFAULT_SAVE_EXTENSION)
     # if is_best:
     #     shutil.copyfile(filename, 'model_best.pth.tar')
 
+
+def store_user_choice(params, keyword):
+    '''
+    Utility function for editing a single parameter in params
+    given by keyword.
+
+    Keyword arguments:
+    > params (dict) -- currently loaded state dict.
+    > keyword (string) -- key for state variable in params to
+        be edited.
+
+    Returns: N/A
+    '''
+    if keyword == 'batch_size':
+        params['batch_size'] = int(input_from_list(constants.BATCH_SIZES, 'batch size'))
+    elif keyword == 'dataset':
+        params['dataset'] = input_from_list(constants.DATASETS, 'dataset')
+    elif keyword == 'total_epochs':
+        params['total_epochs'] = input_from_range(1, 10000, 'training epochs')
+    elif keyword == 'learning_rate':
+        params['learning_rate'] = input_float_range(0, 10, 'Learning rate')
+    elif keyword == 'momentum':
+        params['momentum'] = input_float_range(0, 1, 'Momentum')
+    elif keyword == 'weight_decay':
+        params['weight_decay'] = input_float_range(0, 1, 'Weight decay')
+    elif keyword == 'print_frequency':
+        params['print_frequency'] = input_from_range(1, 100, 'print frequency')
+    elif keyword == 'save_every':
+        params['save_every'] = input_from_range(1, 100, 'save frequency')
+    elif keyword == 'evaluate':
+        params['evaluate'] = get_yes_or_no('Evaluate on validation set?')
+    elif keyword == 'seed':
+        params['seed'] = input_from_range(-1e99, 1e99, 'random seed')
+    else:
+        print('\'' + keyword + '\'', 'is not editable in state dict.')
 
 # TODO: Implement default
 def input_float_range(low, high, prompt):
@@ -78,9 +117,9 @@ def input_from_list(the_list, item, default=None):
 
     for idx, list_item in enumerate(the_list):
         print(str((idx + 1)) + ':', list_item)
-    input_idx = int(input('Please type the number of the ' + item + ' you wish to be loaded (enter for default) -> ')) - 1
+    input_idx = int(input('Please type the number of the ' + item + ' you wish to choose (enter for default) -> ')) - 1
     while input_idx not in range(len(the_list)):
-        input_idx = int(input('Try again. Please type the number of the ' + item + ' you wish to be loaded (enter for default) -> ')) - 1
+        input_idx = int(input('Try again. Please type the number of the ' + item + ' you wish to choose (enter for default) -> ')) - 1
     return the_list[input_idx]
 
 

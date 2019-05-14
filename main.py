@@ -27,12 +27,8 @@ import train_utils
 # For models
 import models
 
-# TODO: Add VAE and other architectures to this list
-MODEL_ARCHITECTURE_NAMES = ['Classifier_A', 'Classifier_B', 'Classifier_C', 'Classifier_D', 'Classifier_E']
-BATCH_SIZES = [1, 4, 8, 16, 32, 64, 128, 256]
-DATASETS = ['MNIST', 'CIFAR-10', 'FASHION-MNIST']
-CRITERIA = ['CrossEntropyLoss'] # TODO: Add more criteria
-OPTIMIZERS = ['SGD', 'Adam', 'RMSProp']
+# For constants
+import constants
 
 
 def new_model(params):
@@ -50,7 +46,7 @@ def new_model(params):
     params['run_name'] = input('Please type the current model run name -> ')
 
     # Architecture
-    model_string = train_utils.input_from_list(MODEL_ARCHITECTURE_NAMES, 'model')
+    model_string = train_utils.input_from_list(constants.MODEL_ARCHITECTURE_NAMES, 'model')
     if model_string == 'Classifier_A':
         params['model'] = models.Classifier_A()
     elif model_string == 'Classifier_B':
@@ -63,35 +59,10 @@ def new_model(params):
         params['model'] = models.Classifier_E()
     models.initialize_model(params['model'])
 
-    # Batch size
-    params['batch_size'] = int(train_utils.input_from_list(BATCH_SIZES, 'batch size'))
-
-    # Dataset
-    params['dataset'] = train_utils.input_from_list(DATASETS, 'dataset')
-
-    # Total epochs
-    params['total_epochs'] = train_utils.input_from_range(1, 10000, 'training epochs')
-
-    # Learning rate
-    params['learning_rate'] = train_utils.input_float_range(0, 10, 'Learning rate')
-
-    # Momentum
-    params['momentum'] = train_utils.input_float_range(0, 1, 'Momentum')
-
-    # Weight decay
-    params['weight_decay'] = train_utils.input_float_range(0, 1, 'Weight decay')
-
-    # Print frequency
-    params['print_frequency'] = train_utils.input_from_range(1, 100, 'print frequency')
-
-    # Default - checkpoint every 10 epochs
-    params['save_every'] = train_utils.input_from_range(1, 100, 'save frequency')
-
-    # Whether to evaluate on validation set
-    params['evaluate'] = train_utils.get_yes_or_no('Evaluate on validation set?')
-
-    # Random seed
-    params['seed'] = train_utils.input_from_range(-1e99, 1e99, 'random seed')
+    # Setup other state variables
+    for state_var in constants.SETUP_STATE_VARS:
+        train_utils.store_user_choice(params, state_var)
+        print()
 
     # TODO: Allow user to pick criteria!!!
 
@@ -122,30 +93,50 @@ def load_model(params):
         print('No current models exist. Switching to creating a new model...')
         new_model(params)
 
+    # Grabs model choice from user
+    print('\n --- All saved models ---')
     user_model_choice = train_utils.input_from_list(model_folders, 'input')
-    print('user model choice:', user_model_choice)
+    print('Chosen model:', user_model_choice[user_model_choice.rfind('/') + 1:])
 
     # Grabs checkpoint file from user
+    print('\n --- All saved checkpoints ---')
     saved_checkpoint_files = glob.glob(user_model_choice + '/*')
     user_checkpoint_choice = train_utils.input_from_list(saved_checkpoint_files, 'checkpoint')
+    print('Chosen checkpoint:', user_checkpoint_choice[user_checkpoint_choice.rfind('/') + 1:], '\n')
 
-    # Loads saved state into params
-    return torch.load(user_checkpoint_choice)
+    # Loads saved state and sets up GPU for its model
+    print('Loading model...')
+    loaded = torch.load(user_checkpoint_choice)
+    setup_cuda(loaded)
+    print('Finished loading model! Use -p to print current state.')
+    return loaded
+
+
+def setup_cuda(params):
+    '''
+    Loads model onto GPU if one is available.
+    '''
+    if params['device'] != torch.device('cpu'):
+        print("Use GPU: {} for training".format(params['device']))
+        torch.cuda.set_device(params['device'])
+        params['model'] = params['model'].cuda(params['device'])
+
+    # Should make things faster if input size is consistent.
+    # https://discuss.pytorch.org/t/what-does-torch-backends-cudnn-benchmark-do/5936/6
+    cudnn.benchmark = True
 
 
 def param_factory():
-    """
+    '''
     Constructs a default parameter dictionary to be loaded up 
     upon start of console program.
 
     Keyword arguments: N/A
 
-    Return value: params (dict)
-    > params -- dictionary of default parameters.
-    """
+    Return value: params
+    > params (dict) -- dictionary of default parameters.
+    '''
     params = {}
-
-    # TODO: Fix defaults!
     params['dataset'] = 'MNIST'
     params['model'] = None
     params['load_workers'] = 4
@@ -185,43 +176,79 @@ def param_factory():
 
     return params
 
-def print_help():
-    print('List of commands: ')
-    print('-h: Help command. Prints this list of helpful commands!')
-    print('-q: Quit. Immediately terminates the program.')
-    print('-l: Load model. Loads a specific model/checkpoint into current program state.')
-    print('-n: New model. Copies server metadata into local computer.')
-    print('-s: State. Prints the current program state (e.g. model, epoch, params, etc.)')
-    print('-t: Train. Trains the network using the current program state.')
-    print('-e: Evaluate. Evaluates the currently loaded network.')
+
+def edit_state_vals(params):
+    editable_vars_with_vals = [state_var + ': ' + str(params[state_var]) for state_var in constants.EDITABLE_STATE_VARS]
+    editable_vars_with_vals.append('exit')
+    return editable_vars_with_vals
+
+
+def edit_state(params):
+    '''
+    Allows user to edit current state parameters.
+
+    Keyword arguments:
+    > params (dict) -- current state variable
+
+    Returns: N/A
+    '''
+
+    if params['model'] is None:
+        print('You have no model! Please type -n to create a new model!')
+        return
+
+    print('--- Editing current state ---')
+    editable_vars_with_vals = edit_state_vals(params)
+    change_var = train_utils.input_from_list(editable_vars_with_vals, 'state variable')
+    if change_var != 'exit':
+        change_var = change_var[:change_var.rfind(':')]
+    while change_var != 'exit':
+        train_utils.store_user_choice(params, change_var)
+        editable_vars_with_vals = edit_state_vals(params)
+        change_var = train_utils.input_from_list(editable_vars_with_vals, 'state variable')
+        if change_var != 'exit':
+            change_var = change_var[:change_var.rfind(':')]
+
+    # TODO: I don't know if this is entirely correct. Think about it!
+    train_utils.save_checkpoint(params, params['start_epoch'])
+    print()
 
 
 # TODO: Actually print useful stuff :P
 def print_state(params):
-    print('Model:', params['model'], '\n')
-    print('Epoch:', params['start_epoch'], '\n')
-    print('Optimizer:', params['optimizer'], '\n')
+    '''
+    Nicely formats and prints the currently loaded state.
 
+    Keyword arguments: params
+    > params (dict) -- currently loaded state dict.
+    '''
+    print('\n --- Loaded state --- \n')
+    print('Model:', params['model'], '\n')
+    print('Optimizer:', params['optimizer'], '\n')
+    print('Epoch:', params['start_epoch'])
+    print('Total epochs:', params['total_epochs'])
+    print('Batch size:', params['batch_size'])
+    if params['train_dataloader'] is not None:
+        print('Total training set size:', params['batch_size'] * len(params['train_dataloader']))
+        print('Total val set size:', params['batch_size'] * len(params['val_dataloader']))
+        print('Total test set size:', params['batch_size'] * len(params['test_dataloader']))
+    print('Print every', params['print_frequency'], 'iterations.')
+    print('Save every', params['save_every'], 'epochs.')
+    
 
 def perform_training(params, evaluate=False):
+    '''
+    Attempts to train the remaining number of epochs. Will fail
+    if no valid model is loaded.
 
+    Keyword arguments: params
+    > params (dict) -- currently loaded state dict.
+
+    Returns: N/A
+    '''
     if params['model'] is None:
-        print('You have no model! Please use -n to create a new model!')
+        print('You have no model! Please type -n to create a new model!')
         return
-
-    # Load model onto GPU if one is available
-    if params['device'] != torch.device('cpu'):
-        print("Use GPU: {} for training".format(params['device']))
-        torch.cuda.set_device(params['device'])
-        params['model'] = params['model'].cuda(params['device'])
-
-    # Should make things faster if input size is consistent.
-    # https://discuss.pytorch.org/t/what-does-torch-backends-cudnn-benchmark-do/5936/6
-    cudnn.benchmark = True
-
-    # Only test! TODO: Make this only test once. Have a separate `test(params)` function.`
-    # if params['evaluate']:
-    #     test(params)
 
     # Training/val loop
     for epoch in range(params['start_epoch'], params['total_epochs']):
@@ -232,7 +259,7 @@ def perform_training(params, evaluate=False):
         adjust_learning_rate(epoch, params)
 
         # train for one epoch
-        train(epoch, params)
+        train_one_epoch(epoch, params)
 
         # evaluate on validation set
         acc1 = validate(params)
@@ -248,27 +275,7 @@ def perform_training(params, evaluate=False):
             train_utils.save_checkpoint(params, epoch)
 
 
-# From PyTorch. TODO: Remove (but not yet)
-def load_checkpoint(params):
-    # optionally resume from a checkpoint
-    if params.resume:
-        if os.path.isfile(params.resume):
-            print("=> loading checkpoint '{}'".format(params.resume))
-            checkpoint = torch.load(params.resume)
-            params['start_epoch'] = checkpoint['epoch']
-            best_acc1 = checkpoint['best_acc1']
-            if params.gpu is not None:
-                # best_acc1 may be from a checkpoint from a different GPU
-                best_acc1 = best_acc1.to(params.gpu)
-            params['model'].load_state_dict(checkpoint['state_dict'])
-            params['optimizer'].load_state_dict(checkpoint['optimizer'])
-            print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(params.resume, checkpoint['epoch']))
-        else:
-            print("=> no checkpoint found at '{}'".format(params.resume))
-
-
-def train(epoch, params):
+def train_one_epoch(epoch, params):
 
     # No idea what this is for now...
     batch_time = train_utils.AverageMeter('Time', ':6.3f')
@@ -316,6 +323,11 @@ def train(epoch, params):
 
 
 def validate(params):
+
+    if params['model'] is None:
+        print('You have no model! Please type -n to create a new model!')
+        return
+
     batch_time = train_utils.AverageMeter('Time', ':6.3f')
     losses = train_utils.AverageMeter('Loss', ':.4e')
     top1 = train_utils.AverageMeter('Acc@1', ':6.2f')
@@ -383,6 +395,22 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
+def print_help():
+    '''
+    Lists all commands (currently) available in the
+    main console.
+    '''
+    print('List of commands: ')
+    print('-h: Help command. Prints this list of helpful commands!')
+    print('-q: Quit. Immediately terminates the program.')
+    print('-l: Load model. Loads a specific model/checkpoint into current program state.')
+    print('-n: New model. Copies server metadata into local computer.')
+    print('-p: Print. Prints the current program state (e.g. model, epoch, params, etc.)')
+    print('-t: Train. Trains the network using the current program state.')
+    print('-v: Validate. Runs the currently loaded network on the validation set.')
+    print('-e: Edit. Gives the option to edit the current state.')
+
+
 def main():
     params = param_factory()
 
@@ -398,21 +426,24 @@ def main():
                       'from checkpoints.')
 
     while True:
-        print('\n============== CS231n Project Console ==============')
+        print('============== CS231n Project Console ==============')
         user_input = input('What would you like to do? (type -h for help) -> ')
         if user_input in ['-t', '--train', 't', 'train']:
             perform_training(params)
-        elif user_input in ['-e', '--eval', 'e', 'eval']:
-            perform_training(params, evaluate=True)
+        elif user_input in ['-v', '--validate', 'v', 'validate']:
+            validate(params)
         elif user_input in ['-l', '--load', 'l', 'load']:
             params = load_model(params)
         elif user_input in ['-n', '--new', 'n', 'new']:
             new_model(params)
         elif user_input in ['-h', '--help', 'h', 'help']:
             print_help()
-        elif user_input in ['-s', '--state', 's', 'state']:
+        elif user_input in ['-p', '--print', 'p', 'print']:
             print_state(params)
+        elif user_input in ['-e', '--edit', 'e', 'edit']:
+            edit_state(params)
         elif user_input in ['-q', '--quit', 'q', 'quit']:
+            print()
             exit()
         else:
             print('Sorry, that command doesn\'t exist (yet)!')
