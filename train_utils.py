@@ -8,6 +8,84 @@ def save_checkpoint(params, epoch):
     #     shutil.copyfile(filename, 'model_best.pth.tar')
 
 
+# TODO: Implement default
+def input_float_range(low, high, prompt):
+    '''
+    Utility helper function to grab a user's choice
+    of integer from an inclusive range.
+
+    Keyword Arguments: low (float), high (float), prompt (string)
+    > low -- lower bound
+    > high -- upper bound
+    > prompt -- message to prompt with
+
+    Returns: user_input (float)
+    > user_input -- user's final input, within [low, high].
+    '''
+    user_input = float(prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> ')
+    if user_input < low or user_input > high:
+        print('Error: must be within ' + str(low) + ' to ' + str(high) + ', inclusive.')
+        user_input = float(prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> ')
+    return user_input
+
+
+def get_yes_or_no(prompt):
+    '''
+    Simply returns a bool based on user yes/no.
+    '''
+    answer = input(prompt + ' (y/n) -> ')
+    while answer.lower() not in ['y', 'yes', 'n', 'no']:
+        print('Please enter yes/no.')
+        answer = input(prompt + ' (y/n) -> ')
+    return answer.lower() in ['y', 'yes']
+
+
+# TODO: Implement default
+def input_from_range(low, high, prompt):
+    '''
+    Utility helper function to grab a user's choice
+    of integer from an inclusive range.
+
+    Keyword Arguments: low (int), high (int), prompt (string)
+    > low -- lower bound
+    > high -- upper bound
+    > prompt -- message to prompt with
+
+    Returns: user_input (int)
+    > user_input -- user's final input, within [low, high].
+    '''
+    user_input = int('Number of ' + prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> ')
+    if user_input < low or user_input > high:
+        print('Error: must be within ' + str(low) + ' to ' + str(high) + ', inclusive.')
+        user_input = int('Number of ' + prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> ')
+    return user_input
+
+
+# TODO: Implement default
+def input_from_list(the_list, item, default=None):
+    '''
+    Utility helper function to grab a user's choice
+    of object from a list.
+
+    Keyword Arguments: the_list (list<T>), item (string)
+    > the_list -- a list of items to choose from.
+    > item -- the type of item to be stated in the prompt.
+
+    Returns: the_list[input_idx] (T)
+    > the_list[input_idx] -- the `input_idx`th object in the list,
+        as specified by the user.
+    '''
+
+    for idx, list_item in enumerate(the_list):
+        print((idx + 1) + ':', list_item)
+    input_idx = int(input('Please type the number of the ' + item + ' you wish to be loaded \
+        (enter for default) -> ')) - 1
+    while input_idx not in range(len(the_list)):
+        input_idx = int(input('Try again. Please type the number of the ' + item + ' you wish to be loaded\
+            (enter for default) -> ')) - 1
+    return the_list[input_idx]
+
+
 # Taken from PyTorch/examples
 class AverageMeter(object):
     """Computes and stores the average and current value"""

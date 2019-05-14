@@ -9,16 +9,11 @@ import glob
 
 import torch
 import torch.nn as nn
-import torch.nn.parallel
 import torch.backends.cudnn as cudnn
-import torch.distributed as dist
 import torch.optim
 import torch.multiprocessing as mp
-import torch.utils.data
-import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-import torchvision.models as models
 
 # For progress bars
 import tqdm
@@ -27,13 +22,103 @@ import tqdm
 from data_utils import get_dataloader
 
 # For training utility functions
-from train_utils import AverageMeter, ProgressMeter, save_checkpoint
+import train_utils
+
+# For models
+import models
+
+# TODO: Add VAE and other architectures to this list
+MODEL_ARCHITECTURE_NAMES = ['Classifier_A', 'Classifier_B', 'Classifier_C', 'Classifier_D', 'Classifier_E']
+BATCH_SIZES = [1, 4, 8, 16, 32, 64, 128, 256]
+DATASETS = ['MNIST', 'CIFAR-10', 'FASHION-MNIST']
+CRITERIA = ['CrossEntropyLoss'] # TODO: Add more criteria
+OPTIMIZERS = ['SGD', 'Adam', 'RMSProp']
 
 
-# HUGE TODO: Prompt and set parameters for a new model, and
-# load that state into params
 def new_model(params):
-    pass
+    '''
+    Creates a new model instance and initializes the respective fields
+    in params.
+
+    Keyword arguments:
+    > params (dict) -- current state variable
+
+    Returns: N/A
+    '''
+    
+    # Name
+    params['run_name'] = input('Please type the current model run name -> ')
+
+    # Architecture
+    model_string = train_utils.input_from_list(MODEL_ARCHITECTURE_NAMES, 'model')
+    if model_string == 'Classifier_A':
+        params['model'] = models.Classifier_A()
+    elif model_string == 'Classifier_B':
+        params['model'] = models.Classifier_B()
+    if model_string == 'Classifier_C':
+        params['model'] = models.Classifier_C()
+    elif model_string == 'Classifier_D':
+        params['model'] = models.Classifier_D()
+    elif model_string == 'Classifier_E':
+        params['model'] = models.Classifier_E()
+    models.initialize_model(params['model'])
+
+    # Batch size
+    params['batch_size'] = int(train_utils.input_from_list(BATCH_SIZES, 'batch size'))
+
+    # Dataset
+    params['dataset'] = train_utils.input_from_list(DATASETS, 'dataset')
+
+    # Total epochs
+    params['total_epochs'] = train_utils.input_from_range(1, 10000, 'training epochs')
+
+    # Learning rate
+    params['learning_rate'] = train_utils.input_float_range(0, 10, 'Learning rate')
+
+    # Momentum
+    params['momentum'] = train_utils.input_float_range(0, 1, 'Momentum')
+
+    # Weight decay
+    params['weight_decay'] = train_utils.input_float_range(0, 1, 'Weight decay')
+
+    # Print frequency
+    params['print_frequency'] = train_utils.input_from_range(1, 100, 'print frequency')
+
+    # Default - checkpoint every 10 epochs
+    params['save_every'] = train_utils.input_from_range(1, 100, 'save frequency')
+
+    # Whether to evaluate on validation set
+    params['evaluate'] = train_utils.get_yes_or_no('Evaluate on validation set?')
+
+    # Random seed
+    params['seed'] = train_utils.input_from_range(-1e99, 1e99, 'random seed')
+
+    # TODO: Allow user to pick criteria!!!
+
+    # Optimizer - TODO: Allow user to pick optimizer
+    params['optimizer'] = torch.optim.SGD(params['model'].parameters(), params['learning_rate'],
+                                momentum=params['momentum'],
+                                weight_decay=params['weight_decay'])
+
+
+def load_model(params):
+    '''
+    Loads a model from a given checkpoint.
+    '''
+    # Grabs model directory from user
+    model_folders = glob.glob('models/*')
+    if len(model_folders) == 0:
+        print('No current models exist. Switching to creating a new model...')
+        new_model(params)
+
+    user_model_choice = train_utils.input_from_list(model_folders, 'input')
+
+    # Grabs checkpoint file from user
+    saved_checkpoint_files = glob.glob('models/' + user_model_choice + '/*')
+    user_checkpoint_choice = train_utils.input_from_list(saved_checkpoint_files, 'checkpoint')
+
+    # Loads saved state into params
+    params = torch.load('models/' + user_model_choice + '/' + user_checkpoint_choice)
 
 
 def param_factory():
@@ -50,7 +135,6 @@ def param_factory():
 
     # TODO: Fix defaults!
     params['dataset'] = 'MNIST'
-    params['all_architectures'] = [] # Fix this!
     params['model'] = None
     params['load_workers'] = 4
     params['total_epochs'] = 90
@@ -82,9 +166,7 @@ def param_factory():
 
     # Optimizer - THIS MUST GET CONSTRUCTED LATER
     params['optimizer'] = None
-    """torch.optim.SGD(model.parameters(), params['lr'],
-                                momentum=params['momentum'],
-                                weight_decay=params['weight_decay'])"""
+
     return params
 
 
@@ -147,13 +229,10 @@ def main_worker(params):
 
         # Save checkpoint every 'save_every' epochs.
         if epoch % params['save_every'] == params['save_every']:
-            save_checkpoint(params, epoch)
+            train_utils.save_checkpoint(params, epoch)
 
 
 def load_checkpoint(params):
-    # List all models, and all epochs
-    for folder_name in 
-
     if os.path.isfile(params.resume):
         print("=> loading checkpoint '{}'".format(params.resume))
         checkpoint = torch.load(params.resume)
@@ -187,12 +266,12 @@ def load_checkpoint(params):
             print("=> no checkpoint found at '{}'".format(params.resume))
 
 def train(train_loader, model, criterion, optimizer, epoch, params):
-    batch_time = AverageMeter('Time', ':6.3f')
-    data_time = AverageMeter('Data', ':6.3f')
-    losses = AverageMeter('Loss', ':.4e')
-    top1 = AverageMeter('Acc@1', ':6.2f')
-    top5 = AverageMeter('Acc@5', ':6.2f')
-    progress = ProgressMeter(len(train_loader), batch_time, data_time, losses, top1,
+    batch_time = train_utils.AverageMeter('Time', ':6.3f')
+    data_time = train_utils.AverageMeter('Data', ':6.3f')
+    losses = train_utils.AverageMeter('Loss', ':.4e')
+    top1 = train_utils.AverageMeter('Acc@1', ':6.2f')
+    top5 = train_utils.AverageMeter('Acc@5', ':6.2f')
+    progress = train_utils.ProgressMeter(len(train_loader), batch_time, data_time, losses, top1,
                              top5, prefix="Epoch: [{}]".format(epoch))
 
     # switch to train mode
@@ -231,11 +310,11 @@ def train(train_loader, model, criterion, optimizer, epoch, params):
 
 
 def validate(val_loader, model, criterion, params):
-    batch_time = AverageMeter('Time', ':6.3f')
-    losses = AverageMeter('Loss', ':.4e')
-    top1 = AverageMeter('Acc@1', ':6.2f')
-    top5 = AverageMeter('Acc@5', ':6.2f')
-    progress = ProgressMeter(len(val_loader), batch_time, losses, top1, top5,
+    batch_time = train_utils.AverageMeter('Time', ':6.3f')
+    losses = train_utils.AverageMeter('Loss', ':.4e')
+    top1 = train_utils.AverageMeter('Acc@1', ':6.2f')
+    top5 = train_utils.AverageMeter('Acc@5', ':6.2f')
+    progress = train_utils.ProgressMeter(len(val_loader), batch_time, losses, top1, top5,
                              prefix='Test: ')
 
     # switch to evaluate mode
