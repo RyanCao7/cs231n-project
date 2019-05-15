@@ -114,8 +114,6 @@ def setup_cuda(params):
     Loads model onto GPU if one is available.
     '''
     print("Use {} for training".format(params['device']))
-    if params['device'] != torch.device('cpu'):
-        torch.cuda.set_device(params['device'])
     params['model'] = params['model'].to(params['device'])
 
     # Should make things faster if input size is consistent.
@@ -286,6 +284,8 @@ def perform_training(params, evaluate=False):
         # Update train/val accuracy/loss plots
         train_utils.plot_accuracies(params)
         train_utils.plot_losses(params)
+
+    train_utils.save_checkpoint(params, params['total_epochs'])
 
 
 def train_one_epoch(epoch, params):
