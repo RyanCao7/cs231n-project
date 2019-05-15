@@ -89,6 +89,7 @@ def load_model(params):
     if len(model_folders) == 0:
         print('No current models exist. Switching to creating a new model...')
         new_model(params)
+        return
 
     # Grabs model choice from user
     print('\n --- All saved models ---')
