@@ -114,10 +114,10 @@ def setup_cuda(params):
     '''
     Loads model onto GPU if one is available.
     '''
+    print("Use {} for training".format(params['device']))
     if params['device'] != torch.device('cpu'):
-        print("Use GPU: {} for training".format(params['device']))
         torch.cuda.set_device(params['device'])
-        params['model'] = params['model'].cuda(params['device'])
+    params['model'] = params['model'].to(params['device'])
 
     # Should make things faster if input size is consistent.
     # https://discuss.pytorch.org/t/what-does-torch-backends-cudnn-benchmark-do/5936/6
@@ -231,6 +231,7 @@ def print_state(params):
     print('\n --- Loaded state --- \n')
     print('Model:', params['model'], '\n')
     print('Optimizer:', params['optimizer'], '\n')
+    print('Device:', params['device'])
     print('Epoch:', params['start_epoch'])
     print('Total epochs:', params['total_epochs'])
     print('Batch size:', params['batch_size'])
@@ -289,11 +290,11 @@ def perform_training(params, evaluate=False):
 def train_one_epoch(epoch, params):
 
     # No idea what this is for now...
-    batch_time = train_utils.AverageMeter('Time', ':6.3f')
-    data_time = train_utils.AverageMeter('Data', ':6.3f')
+    batch_time = train_utils.AverageMeter('Time', ':5.3f')
+    data_time = train_utils.AverageMeter('Data', ':5.3f')
     losses = train_utils.AverageMeter('Loss', ':.4e')
-    top1 = train_utils.AverageMeter('Acc@1', ':6.2f')
-    top5 = train_utils.AverageMeter('Acc@5', ':6.2f')
+    top1 = train_utils.AverageMeter('Acc@1', ':5.2f')
+    top5 = train_utils.AverageMeter('Acc@5', ':5.2f')
     progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, data_time, losses, top1,
                              top5, prefix="Epoch: [{}]".format(epoch))
 
@@ -301,23 +302,22 @@ def train_one_epoch(epoch, params):
     params['model'].train()
 
     end = time.time()
-    for i, (input, target) in enumerate(params['train_dataloader']):
+    for i, (data, target) in enumerate(params['train_dataloader']):
         # measure data loading time
         data_time.update(time.time() - end)
 
-        if params['device'] != torch.device('cpu'):
-            input = input.cuda(params['device'], non_blocking=True)
-            target = target.cuda(params['device'], non_blocking=True)
+        data = data.to(params['device'])
+        target = target.to(params['device'])
 
         # compute output
-        output = params['model'](input)
+        output = params['model'](data)
         loss = params['criterion'](output, target)
 
         # measure accuracy and record loss
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
-        losses.update(loss.item(), input.size(0))
-        top1.update(acc1[0], input.size(0))
-        top5.update(acc5[0], input.size(0))
+        losses.update(loss.item(), data.size(0))
+        top1.update(acc1[0], data.size(0))
+        top5.update(acc5[0], data.size(0))
 
         # compute gradient and do SGD step
         params['optimizer'].zero_grad()
@@ -345,10 +345,10 @@ def validate(params):
         print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
         return
 
-    batch_time = train_utils.AverageMeter('Time', ':6.3f')
+    batch_time = train_utils.AverageMeter('Time', ':5.3f')
     losses = train_utils.AverageMeter('Loss', ':.4e')
-    top1 = train_utils.AverageMeter('Acc@1', ':6.2f')
-    top5 = train_utils.AverageMeter('Acc@5', ':6.2f')
+    top1 = train_utils.AverageMeter('Acc@1', ':5.2f')
+    top5 = train_utils.AverageMeter('Acc@5', ':5.2f')
     progress = train_utils.ProgressMeter(len(params['val_dataloader']), batch_time, losses, top1, top5,
                              prefix='Test: ')
 
@@ -357,20 +357,20 @@ def validate(params):
 
     with torch.no_grad():
         end = time.time()
-        for i, (input, target) in enumerate(params['val_dataloader']):
-            if params['device'] is not None:
-                input = input.cuda(params['device'], non_blocking=True)
-            target = target.cuda(params['device'], non_blocking=True)
+        for i, (data, target) in enumerate(params['val_dataloader']):
+            
+            data = data.to(params['device'])
+            target = target.to(params['device'])
 
             # compute output
-            output = params['model'](input)
+            output = params['model'](data)
             loss = params['criterion'](output, target)
 
             # measure accuracy and record loss
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
-            losses.update(loss.item(), input.size(0))
-            top1.update(acc1[0], input.size(0))
-            top5.update(acc5[0], input.size(0))
+            losses.update(loss.item(), data.size(0))
+            top1.update(acc1[0], data.size(0))
+            top5.update(acc5[0], data.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)
