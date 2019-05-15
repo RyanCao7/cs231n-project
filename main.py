@@ -169,7 +169,15 @@ def param_factory():
     params['optimizer'] = None
 
     # Dataloaders
-    params['train_dataloader'], params['test_dataloader'] = None, None
+    params['train_dataloader'] = None
+    params['val_dataloader'] = None
+    params['test_dataloader'] = None
+
+    # Saved per-epoch accuracies + losses
+    params['train_accuracies'] = []
+    params['train_losses'] = []
+    params['val_accuracies'] = []
+    params['val_losses'] = []
 
     return params
 
@@ -272,6 +280,10 @@ def perform_training(params, evaluate=False):
         if epoch % params['save_every'] == 0:
             train_utils.save_checkpoint(params, epoch)
 
+        # Update train/val accuracy/loss plots
+        train_utils.plot_accuracies(params)
+        train_utils.plot_losses(params)
+
 
 def train_one_epoch(epoch, params):
 
@@ -319,8 +331,14 @@ def train_one_epoch(epoch, params):
         if i % params['print_frequency'] == 0:
             progress.print(i)
 
+    # Storing training losses/accuracies
+    params['train_losses'].append(losses.get_avg())
+    params['train_accuracies'].append(top1.get_avg())
+
 
 def validate(params):
+
+    print('--- BEGIN VALIDATION PASS ---')
 
     if params['model'] is None:
         print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
@@ -363,6 +381,10 @@ def validate(params):
         # TODO: this should also be done with the ProgressMeter
         print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
               .format(top1=top1, top5=top5))
+
+        # Storing validation losses/accuracies
+        params['val_losses'].append(losses.get_avg())
+        params['val_accuracies'].append(top1.get_avg())
 
     return top1.avg
 

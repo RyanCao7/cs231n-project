@@ -1,5 +1,6 @@
 import torch
 import constants
+import matplotlib.pyplot as plt
 
 
 # TODO: Make this save for best val accuracy epoch
@@ -10,6 +11,30 @@ def save_checkpoint(params, epoch):
     torch.save(params, 'models/' + params['run_name'] + '/' + params['run_name'] + '_epoch_' + str(epoch) + DEFAULT_SAVE_EXTENSION)
     # if is_best:
     #     shutil.copyfile(filename, 'model_best.pth.tar')
+
+
+def plot_accuracies(params):
+    plt.figure(figsize=(10, 8))
+    plt.title('Accuracies')
+    plt.plot(params['train_accuracies'], '-o', label='Training Accuracy')
+    plt.plot(params['val_accuracies'], '-o', label='Validation Accuracy')
+    plt.xlabel('Epoch')
+    plt.legend(loc='lower right')
+    # plt.gcf().set_size_inches(15, 12)
+    plt.savefig('models/' + params['run_name'] + '/' + params['run_name'] + '_accuracies.png')
+    plt.close()
+ 
+
+def plot_losses(params):
+    plt.figure(figsize=(10, 8))
+    plt.title('Losses')
+    plt.plot(params['train_losses'], '-o', label='Training Loss')
+    plt.plot(params['val_losses'], '-o', label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.legend(loc='lower right')
+    # plt.gcf().set_size_inches(15, 12)
+    plt.savefig('models/' + params['run_name'] + '/' + params['run_name'] + '_losses.png')
+    plt.close()
 
 
 def store_user_choice(params, keyword):
@@ -146,6 +171,9 @@ class AverageMeter(object):
     def __str__(self):
         fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
         return fmtstr.format(**self.__dict__)
+
+    def get_avg(self):
+        return self.avg
 
 
 class ProgressMeter(object):
