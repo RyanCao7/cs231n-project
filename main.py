@@ -105,7 +105,6 @@ def load_model(params):
     # Loads saved state and sets up GPU for its model
     print('Loading model...')
     loaded = torch.load(user_checkpoint_choice)
-    setup_cuda(loaded)
     print('Finished loading model! Use -p to print current state.')
     return loaded
 
@@ -258,6 +257,8 @@ def perform_training(params, evaluate=False):
         print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
         return
 
+    setup_cuda(params)
+    
     # Training/val loop
     for epoch in range(params['start_epoch'], params['total_epochs']):
         
@@ -339,11 +340,13 @@ def train_one_epoch(epoch, params):
 
 def validate(params):
 
-    print('--- BEGIN VALIDATION PASS ---')
-
     if params['model'] is None:
         print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
         return
+    
+    print('--- BEGIN VALIDATION PASS ---')
+    
+    setup_cuda(params)
 
     batch_time = train_utils.AverageMeter('Time', ':5.3f')
     losses = train_utils.AverageMeter('Loss', ':.4e')
