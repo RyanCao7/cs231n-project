@@ -117,9 +117,9 @@ def input_from_list(the_list, item, default=None):
 
     for idx, list_item in enumerate(the_list):
         print(str((idx + 1)) + ':', list_item)
-    input_idx = int(input('Please type the number of the ' + item + ' you wish to choose (enter for default) -> ')) - 1
+    input_idx = int(input('Please type the index of the ' + item + ' you wish to choose (enter for default) -> ')) - 1
     while input_idx not in range(len(the_list)):
-        input_idx = int(input('Try again. Please type the number of the ' + item + ' you wish to choose (enter for default) -> ')) - 1
+        input_idx = int(input('Try again. Please type the index of the ' + item + ' you wish to choose (enter for default) -> ')) - 1
     return the_list[input_idx]
 
 

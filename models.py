@@ -9,12 +9,11 @@ def initialize_model(model):
 
 class Classifier_A(nn.Module):
     '''
-    An implementation of Classifier A used by Samangouei
-    et al in their paper "Defense-GANL Protecting Classifiers 
-    Against Adversarial Attacks Using Generative Models."
+    An implementation of Classifier A used by Samangouei et al in their paper 
+    "Defense-GANL Protecting Classifiers Against Adversarial Attacks Using 
+    Generative Models."
 
-    Weight initialization should be performed after initializing
-    the model
+    Weight initialization should be performed after initializing the model.
     '''
 
     def __init__(self):
@@ -49,12 +48,11 @@ class Classifier_A(nn.Module):
 
 class Classifier_B(nn.Module):
     '''
-    An implementation of Classifier B used by Samangouei
-    et al in their paper "Defense-GANL Protecting Classifiers 
-    Against Adversarial Attacks Using Generative Models."
+    An implementation of Classifier B used by Samangouei et al in their paper 
+    "Defense-GANL Protecting Classifiers Against Adversarial Attacks Using 
+    Generative Models."
 
-    Weight initialization should be performed after initializing
-    the model
+    Weight initialization should be performed after initializing the model.
     '''
     
     def __init__(self):
@@ -86,12 +84,11 @@ class Classifier_B(nn.Module):
 
 class Classifier_C(nn.Module):
     '''
-    An implementation of Classifier C used by Samangouei
-    et al in their paper "Defense-GANL Protecting Classifiers 
-    Against Adversarial Attacks Using Generative Models."
+    An implementation of Classifier C used by Samangouei et al in their paper 
+    "Defense-GANL Protecting Classifiers Against Adversarial Attacks Using
+    Generative Models."
 
-    Weight initialization should be performed after initializing
-    the model
+    Weight initialization should be performed after initializing the model.
     '''
 
     def __init__(self):
@@ -119,12 +116,11 @@ class Classifier_C(nn.Module):
 
 class Classifier_D(nn.Module):
     '''
-    An implementation of Classifier D used by Samangouei
-    et al in their paper "Defense-GANL Protecting Classifiers 
-    Against Adversarial Attacks Using Generative Models."
+    An implementation of Classifier D used by Samangouei et al in their paper 
+    "Defense-GANL Protecting Classifiers Against Adversarial Attacks Using 
+    Generative Models."
 
-    Weight initialization should be performed after initializing
-    the model
+    Weight initialization should be performed after initializing the model.
     '''
     
     def __init__(self):
@@ -149,12 +145,11 @@ class Classifier_D(nn.Module):
 
 class Classifier_E(nn.Module):
     '''
-    An implementation of Classifier E used by Samangouei
-    et al in their paper "Defense-GANL Protecting Classifiers 
-    Against Adversarial Attacks Using Generative Models."
+    An implementation of Classifier E used by Samangouei et al in their paper
+    "Defense-GANL Protecting Classifiers Against Adversarial Attacks Using 
+    Generative Models."
 
-    Weight initialization should be performed after initializing
-    the model
+    Weight initialization should be performed after initializing the model.
     '''
     
     def __init__(self):
@@ -173,3 +168,36 @@ class Classifier_E(nn.Module):
         out = self.fc_3(hidden_2)
         return out
 
+class VAE(nn.Module):
+    '''
+    An implementation of the paper "Stochastic Gradient VB and the Variational
+    Auto-Encoder" by Kingma and Welling. Shameless ported and modified from the
+    PyTorch example library.
+    '''
+
+    def __init__(self):
+        super(VAE, self).__init__()
+
+        self.fc1 = nn.Linear(784, 400)
+        self.fc21 = nn.Linear(400, 20)
+        self.fc22 = nn.Linear(400, 20)
+        self.fc3 = nn.Linear(20, 400)
+        self.fc4 = nn.Linear(400, 784)
+
+    def encode(self, x):
+        h1 = F.relu(self.fc1(x))
+        return self.fc21(h1), self.fc22(h1)
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5*logvar)
+        eps = torch.randn_like(std)
+        return mu + eps*std
+
+    def decode(self, z):
+        h3 = F.relu(self.fc3(z))
+        return torch.sigmoid(self.fc4(h3))
+
+    def forward(self, x):
+        mu, logvar = self.encode(x.view(-1, 784))
+        z = self.reparameterize(mu, logvar)
+        return self.decode(z), mu, logvar

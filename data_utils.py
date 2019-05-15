@@ -12,7 +12,7 @@ def get_dataloader(dataset_name='MNIST', val_split=0.2, batch_sz=4, num_threads=
     
     Keyword arguments:
     > dataset_name (string) -- Name of dataset to be loaded. Must be one of
-        {'MNIST', 'CIFAR-10'}.
+        {'MNIST', 'CIFAR-10', 'Fashion-MNIST'}.
     > val_split (float) -- Fraction of training data to be used as validation set.
     > batch_sz (int) -- Batch size to be grabbed from DataLoader.
     > num_threads (int) -- Number of threads with which to load data.
@@ -39,6 +39,9 @@ def get_dataloader(dataset_name='MNIST', val_split=0.2, batch_sz=4, num_threads=
     elif dataset_name == 'CIFAR-10':
         train_set = datasets.CIFAR10(root='./datasets', train=True, download=True, transform=train_transform)
         test_set = datasets.CIFAR10(root='./datasets', train=False, download=True, transform=test_transform)
+    elif dataset_name == 'Fashion-MNIST':
+        train_set = datasets.FashionMNIST(root='./datasets', train=True, download=True, transform=train_transform)
+        test_set = datasets.FashionMNIST(root='./datasets', train=False, download=True, transform=test_transform)
     else:
         raise Exception('Error: dataset_name must be one of {\'MNIST\', \'CIFAR-10\'}.')
 
@@ -71,7 +74,7 @@ def transform_factory(dataset_name='MNIST'):
 
     Keyword arguments:
     > dataset_name -- Name of dataset to be transformed. Must be one of
-        {'MNIST', 'CIFAR-10'}.
+        {'MNIST', 'CIFAR-10', 'Fashion-MNIST'}.
 
     Return value: data_transforms
     > data_transforms -- a dictionary that can be passed into a DataLoader
@@ -86,24 +89,24 @@ def transform_factory(dataset_name='MNIST'):
     # https://github.com/tomgoldstein/loss-landscape/blob/master/cifar10/dataloader.py#L16
     MNIST_MEAN = (0.1307,)
     MNIST_STD = (0.3081,)
-    CIFAR10_MEAN = [0.4914, 0.4822, 0.4465]
-    CIFAR10_STD = [0.2470, 0.2435, 0.2616]
+    CIFAR10_MEAN = (0.4914, 0.4822, 0.4465)
+    CIFAR10_STD = (0.2470, 0.2435, 0.2616)
+    FASHIONMNIST_MEAN = (0.2860407,)
+    FASHIONMNIST_STD = (0.35302424,)
 
     normalize_transform = None
     if dataset_name == 'MNIST':
         normalize_transform = transforms.Normalize(MNIST_MEAN, MNIST_STD)
     elif dataset_name == 'CIFAR-10':
         normalize_transform = transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD)
+    elif dataset_name == 'Fashion-MNIST':
+        normalize_transform = transforms.Normalize(FASHIONMNIST_MEAN, FASHIONMNIST_STD)
     else:
-        raise Exception('Error: dataset_name must be one of {\'MNIST\', \'CIFAR-10\'}.')
+        raise Exception('Error: dataset_name must be one of {\'MNIST\', \'CIFAR-10\', \'Fashion-MINST\'}.')
 
     # TODO: Write meaningful transforms for train/val/test sets.
     data_transforms = {
         'train': transforms.Compose([
-            transforms.ToTensor(),
-            normalize_transform
-        ]),
-        'val': transforms.Compose([
             transforms.ToTensor(),
             normalize_transform
         ]),
@@ -118,9 +121,10 @@ def transform_factory(dataset_name='MNIST'):
 
 # Example of how to iterate through dataloader.
 if __name__ == '__main__':
-    train_dataloader, _ = get_dataloader()
+    train_dataloader, _, _ = get_dataloader('Fashion-MNIST', val_split=0, batch_sz=60000)
+    print(train_dataloader)
     for idx, thing in enumerate(train_dataloader):
-        if idx == 3:
+        if idx == 0:
             examples, labels = thing
             print(examples.shape) # Should be (N, C, H, W)
             print(labels.shape) # Should be (N,)
