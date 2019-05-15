@@ -6,6 +6,18 @@ import matplotlib.pyplot as plt
 # TODO: Make this save for best val accuracy epoch
 DEFAULT_SAVE_EXTENSION = '.pth.tar'
 def save_checkpoint(params, epoch):
+    '''
+    Saves the parameter dictionary passed in.
+    `epoch` is assumed to be the number of training 
+    epochs completed by the model (i.e. begin 
+    training at epoch + 1).
+
+    Keyword arguments:
+    > params (dict) -- current state variable
+    > epoch (int) -- number of COMPLETED training epochs
+
+    Returns: N/A
+    '''
     print('Saving current state to', 
         'models/' + params['run_name'] + '/' + params['run_name'] + '_epoch_' + str(epoch) + DEFAULT_SAVE_EXTENSION)
     torch.save(params, 'models/' + params['run_name'] + '/' + params['run_name'] + '_epoch_' + str(epoch) + DEFAULT_SAVE_EXTENSION)
@@ -62,7 +74,7 @@ def store_user_choice(params, keyword):
     elif keyword == 'weight_decay':
         params['weight_decay'] = input_float_range(0, 1, 'Weight decay')
     elif keyword == 'print_frequency':
-        params['print_frequency'] = input_from_range(1, 100, 'print frequency')
+        params['print_frequency'] = input_from_range(1, 10000, 'print frequency')
     elif keyword == 'save_every':
         params['save_every'] = input_from_range(1, 100, 'save frequency')
     elif keyword == 'evaluate':

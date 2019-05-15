@@ -77,7 +77,7 @@ def new_model(params):
     # Saves an initial copy
     if not os.path.isdir('models/' + params['run_name']):
         os.makedirs('models/' + params['run_name'])
-    train_utils.save_checkpoint(params, epoch=0)
+    train_utils.save_checkpoint(params, 0)
 
 
 def load_model(params):
@@ -136,7 +136,7 @@ def param_factory():
     params['model'] = None
     params['load_workers'] = 4
     params['total_epochs'] = 90
-    params['start_epoch'] = 0
+    params['cur_epoch'] = 0
     params['batch_size'] = 256
     params['learning_rate'] = 0.1
     params['momentum'] = 0.9
@@ -213,7 +213,7 @@ def edit_state(params):
             change_var = change_var[:change_var.rfind(':')]
 
     # TODO: I don't know if this is entirely correct. Think about it!
-    train_utils.save_checkpoint(params, params['start_epoch'])
+    train_utils.save_checkpoint(params, params['cur_epoch'])
     print()
 
 
@@ -229,7 +229,7 @@ def print_state(params):
     print('Model:', params['model'], '\n')
     print('Optimizer:', params['optimizer'], '\n')
     print('Device:', params['device'])
-    print('Epoch:', params['start_epoch'])
+    print('Epoch:', params['cur_epoch'])
     print('Total epochs:', params['total_epochs'])
     print('Batch size:', params['batch_size'])
     if params['train_dataloader'] is not None:
@@ -258,7 +258,7 @@ def perform_training(params, evaluate=False):
     setup_cuda(params)
     
     # Training/val loop
-    for epoch in range(params['start_epoch'], params['total_epochs']):
+    for epoch in range(params['cur_epoch'] + 1, params['total_epochs'] + 1):
         
         print('Training: begin epoch', epoch)
 
@@ -274,12 +274,12 @@ def perform_training(params, evaluate=False):
         # Update best val accuracy
         params['best_val_acc'] = max(acc1, params['best_val_acc'])
 
-        # Update the starting epoch
-        params['start_epoch'] += 1
-
         # Save checkpoint every 'save_every' epochs.
         if epoch % params['save_every'] == 0:
             train_utils.save_checkpoint(params, epoch)
+
+        # Update the current epoch
+        params['cur_epoch'] += 1
 
         # Update train/val accuracy/loss plots
         train_utils.plot_accuracies(params)
@@ -460,7 +460,7 @@ def main():
             params = load_model(params)
         elif user_input in ['-n', '--new', 'n', 'new']:
             new_model(params)
-        elif user_input in ['-h', '--help', 'h', 'help'] or trim(user_input) == '':
+        elif user_input in ['-h', '--help', 'h', 'help'] or user_input.strip() == '':
             print_help()
         elif user_input in ['-p', '--print', 'p', 'print']:
             print_state(params)

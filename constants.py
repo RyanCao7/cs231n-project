@@ -32,6 +32,7 @@ EDITABLE_STATE_VARS = [
     'print_frequency',
     'save_every',
     'evaluate',
+    'total_epochs',
 ]
 
 # For state setup
