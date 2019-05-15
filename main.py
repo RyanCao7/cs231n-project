@@ -396,7 +396,7 @@ def validate(params):
 # TODO: Allow this to be altered
 def adjust_learning_rate(epoch, params):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = params['learning_rate'] * (0.1 ** (epoch // 30))
+    lr = params['learning_rate'] * (0.33 ** (epoch // 5))
     for param_group in params['optimizer'].param_groups:
         param_group['lr'] = lr
 
@@ -460,7 +460,7 @@ def main():
             params = load_model(params)
         elif user_input in ['-n', '--new', 'n', 'new']:
             new_model(params)
-        elif user_input in ['-h', '--help', 'h', 'help']:
+        elif user_input in ['-h', '--help', 'h', 'help'] or trim(user_input) == '':
             print_help()
         elif user_input in ['-p', '--print', 'p', 'print']:
             print_state(params)
