@@ -6,7 +6,6 @@ from torch.utils.data.sampler import SubsetRandomSampler
 
 
 def get_dataloader(dataset_name='MNIST', val_split=0.2, batch_sz=4, num_threads=1, shuffle_val=True):
-
     """
     Downloads specified dataset's training and test sets into /datasets directory.
     
@@ -34,16 +33,23 @@ def get_dataloader(dataset_name='MNIST', val_split=0.2, batch_sz=4, num_threads=
 
     # Downloads requested training and test sets into /datasets directory.
     if dataset_name == 'MNIST':
-        train_set = datasets.MNIST(root='./datasets', train=True, download=True, transform=train_transform)
-        test_set = datasets.MNIST(root='./datasets', train=False, download=True, transform=test_transform)
+        train_set = datasets.MNIST(root='./datasets', train=True, download=True, 
+                                   transform=train_transform)
+        test_set = datasets.MNIST(root='./datasets', train=False, download=True, 
+                                  transform=test_transform)
     elif dataset_name == 'CIFAR-10':
-        train_set = datasets.CIFAR10(root='./datasets', train=True, download=True, transform=train_transform)
-        test_set = datasets.CIFAR10(root='./datasets', train=False, download=True, transform=test_transform)
+        train_set = datasets.CIFAR10(root='./datasets', train=True, download=True, 
+                                     transform=train_transform)
+        test_set = datasets.CIFAR10(root='./datasets', train=False, download=True, 
+                                    transform=test_transform)
     elif dataset_name == 'Fashion-MNIST':
-        train_set = datasets.FashionMNIST(root='./datasets', train=True, download=True, transform=train_transform)
-        test_set = datasets.FashionMNIST(root='./datasets', train=False, download=True, transform=test_transform)
+        train_set = datasets.FashionMNIST(root='./datasets', train=True, download=True, 
+                                          transform=train_transform)
+        test_set = datasets.FashionMNIST(root='./datasets', train=False, download=True, 
+                                         transform=test_transform)
     else:
-        raise Exception('Error: dataset_name must be one of {\'MNIST\', \'CIFAR-10\'}.')
+        raise Exception('Error: dataset_name must be one of {\'MNIST\', \'CIFAR-10\', '
+                        '\'Fashion-MINST\'}.')
 
     # Grabs train/val split
     num_train = len(train_set)
@@ -59,9 +65,12 @@ def get_dataloader(dataset_name='MNIST', val_split=0.2, batch_sz=4, num_threads=
     val_sampler = SubsetRandomSampler(valid_idx)
 
     # Constructs dataloader wrappers around MNIST training and test sets
-    train_dataloader = DataLoader(train_set, batch_size=batch_sz, num_workers=num_threads, sampler=train_sampler)
-    val_dataloader = DataLoader(train_set, batch_size=batch_sz, num_workers=num_threads, sampler=val_sampler)
-    test_dataloader = DataLoader(test_set, batch_size=batch_sz, shuffle=True, num_workers=num_threads)
+    train_dataloader = DataLoader(train_set, batch_size=batch_sz, 
+                                  num_workers=num_threads, sampler=train_sampler)
+    val_dataloader = DataLoader(train_set, batch_size=batch_sz, 
+                                num_workers=num_threads, sampler=val_sampler)
+    test_dataloader = DataLoader(test_set, batch_size=batch_sz, 
+                                 shuffle=True, num_workers=num_threads)
 
     return train_dataloader, val_dataloader, test_dataloader
 
@@ -102,7 +111,8 @@ def transform_factory(dataset_name='MNIST'):
     elif dataset_name == 'Fashion-MNIST':
         normalize_transform = transforms.Normalize(FASHIONMNIST_MEAN, FASHIONMNIST_STD)
     else:
-        raise Exception('Error: dataset_name must be one of {\'MNIST\', \'CIFAR-10\', \'Fashion-MINST\'}.')
+        raise Exception('Error: dataset_name must be one of {\'MNIST\', \'CIFAR-10\', '
+                        '\'Fashion-MINST\'}.')
 
     # TODO: Write meaningful transforms for train/val/test sets.
     data_transforms = {

@@ -11,6 +11,9 @@ MODEL_ARCHITECTURE_NAMES = [
 # Powers of 2.
 BATCH_SIZES = [1, 4, 8, 16, 32, 64, 128, 256]
 
+# Adversarial attack methods
+ATTACKS = ['FGSM', 'RAND-FGSM', 'CW']
+
 # torchvision.datasets.[dataset]
 DATASETS = ['MNIST', 'CIFAR-10', 'Fashion-MNIST']
 
