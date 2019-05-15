@@ -38,7 +38,7 @@ def new_model(params):
 
     Returns: N/A
     '''
-    
+
     # Name
     params['run_name'] = input('Please type the current model run name -> ')
 
@@ -358,9 +358,9 @@ def validate(params):
     with torch.no_grad():
         end = time.time()
         for i, (input, target) in enumerate(params['val_dataloader']):
-            if params.gpu is not None:
-                input = input.cuda(params.gpu, non_blocking=True)
-            target = target.cuda(params.gpu, non_blocking=True)
+            if params['device'] is not None:
+                input = input.cuda(params['device'], non_blocking=True)
+            target = target.cuda(params['device'], non_blocking=True)
 
             # compute output
             output = params['model'](input)
