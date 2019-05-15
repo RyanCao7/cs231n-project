@@ -1,11 +1,17 @@
 import torch
 import torch.nn as nn
+import torch.nn.init as init
 import torch.nn.functional as F
 
 
 # TODO: Implement Kaiming initialization for model weights here!
 def initialize_model(model):
-    pass
+    for name, param in model.named_parameters():
+        if name.endswith('.weight'):
+            init.kaiming_normal_(param, mode='fan_in', nonlinearity='relu')
+        elif name.endswith('.bias'):
+            init.constant_(param, 0)
+        print(name, param)
 
 class Classifier_A(nn.Module):
     '''

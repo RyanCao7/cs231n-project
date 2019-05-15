@@ -54,6 +54,8 @@ def new_model(params):
         params['model'] = models.Classifier_D()
     elif model_string == 'Classifier_E':
         params['model'] = models.Classifier_E()
+    elif model_string == 'VAE':
+        params['model'] = models.VAE()
     models.initialize_model(params['model'])
 
     # Setup other state variables
