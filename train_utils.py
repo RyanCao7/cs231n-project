@@ -26,6 +26,8 @@ def save_checkpoint(params, epoch):
 
 
 def plot_accuracies(params):
+    if not os.path.isdir('graphs/' + params['run_name'] + '/'):
+        os.makedirs('graphs/' + params['run_name'] + '/')
     plt.figure(figsize=(10, 8))
     plt.title('Accuracies')
     plt.plot(params['train_accuracies'], '-o', label='Training Accuracy')
@@ -33,11 +35,13 @@ def plot_accuracies(params):
     plt.xlabel('Epoch')
     plt.legend(loc='lower right')
     # plt.gcf().set_size_inches(15, 12)
-    plt.savefig('models/' + params['run_name'] + '/' + params['run_name'] + '_accuracies.png')
+    plt.savefig('graphs/' + params['run_name'] + '/' + params['run_name'] + '_accuracies.png')
     plt.close()
  
 
 def plot_losses(params):
+    if not os.path.isdir('graphs/' + params['run_name'] + '/'):
+        os.makedirs('graphs/' + params['run_name'] + '/')
     plt.figure(figsize=(10, 8))
     plt.title('Losses')
     plt.plot(params['train_losses'], '-o', label='Training Loss')
@@ -45,7 +49,7 @@ def plot_losses(params):
     plt.xlabel('Epoch')
     plt.legend(loc='lower right')
     # plt.gcf().set_size_inches(15, 12)
-    plt.savefig('models/' + params['run_name'] + '/' + params['run_name'] + '_losses.png')
+    plt.savefig('graphs/' + params['run_name'] + '/' + params['run_name'] + '_losses.png')
     plt.close()
 
 

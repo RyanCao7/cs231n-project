@@ -42,8 +42,6 @@ def new_model(params):
     Returns: N/A
     '''
 
-    params = param_factory()
-    
     # Name
     params['run_name'] = input('Please type the current model run name -> ')
 
@@ -276,7 +274,7 @@ def perform_training(params, evaluate=False):
         train_one_epoch(epoch, params)
 
         # evaluate on validation set
-        acc1 = validate(params)
+        acc1 = validate(params, save=True, adversarial=False)
 
         # Update best val accuracy
         params['best_val_acc'] = max(acc1, params['best_val_acc'])
@@ -339,13 +337,16 @@ def train_one_epoch(epoch, params):
         # Print training progress
         if i % params['print_frequency'] == 0:
             progress.print(i)
+            
+    # Prints final training accuracy per epoch
+    progress.print(len(params['train_dataloader']))
 
     # Storing training losses/accuracies
     params['train_losses'].append(losses.get_avg())
     params['train_accuracies'].append(top1.get_avg())
 
 
-def validate(params, adversarial=False):
+def validate(params, save=False, adversarial=False):
 
     if params['model'] is None:
         print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
@@ -374,9 +375,7 @@ def validate(params, adversarial=False):
 
         # Generate adversarial attack (currently whitebox mode)
         if adversarial:
-            
             data.requires_grad = True
-
             data = adversary.attack_batch(data, target, params['model'], 
                 params['criterion'], attack_name='FGSM',
                 device=params['device'], epsilon=0.3, alpha=0.5)
@@ -399,15 +398,18 @@ def validate(params, adversarial=False):
 
             if i % params['print_frequency'] == 0:
                 progress.print(i)
-
-    # TODO: this should also be done with the ProgressMeter
+    
+    # Print final accuracy/loss
     print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
           .format(top1=top1, top5=top5))
 
     # Storing validation losses/accuracies
-    params['val_losses'].append(losses.get_avg())
-    params['val_accuracies'].append(top1.get_avg())
+    if save:
+        params['val_losses'].append(losses.get_avg())
+        params['val_accuracies'].append(top1.get_avg())
 
+    print('--- END VALIDATION PASS ---\n')
+        
     return top1.avg
 
 
@@ -419,7 +421,6 @@ def adjust_learning_rate(epoch, params):
         param_group['lr'] = lr
 
 
-# TODO: Test this and see if it works; if not, change it!
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.no_grad():
@@ -455,8 +456,18 @@ def print_help():
 
 
 def main():
+    
+    # Initialize state parameters
     params = param_factory()
-
+    
+    # Create directories
+    if not os.path.isdir('datasets/'):
+        os.makedirs('datasets/')
+    if not os.path.isdir('models/'):
+        os.makedirs('models/')
+    if not os.path.isdir('graphs/'):
+        os.makedirs('graphs/')
+    
     # Some error message about random seed
     if params['seed'] is not None:
         random.seed(params['seed'])
@@ -468,6 +479,7 @@ def main():
                       'You may see unexpected behavior when restarting '
                       'from checkpoints.')
 
+    # Console-style program
     while True:
         print('============== CS231n Project Console ==============')
         user_input = input('What would you like to do? (type -h for help) -> ')
