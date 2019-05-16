@@ -496,10 +496,22 @@ def attack_validate(params):
     
     Returns: N/A
     '''
-    for attack_name in constants.ATTACKS:
-        print('\n--- COMMENCING ATTACK:', attack_name, '---')
-        validate(params, save=False, adversarial=True, adversarial_attack=attack_name)
-        print('--- ENDING ATTACK ---')
+    if train_utils.get_yes_or_no('Whitebox attack?'):
+        for attack_name in constants.ATTACKS:
+            print('Whitebox attack. Using current classifier (' + params['run_name'] + ').')
+            print('\n--- COMMENCING ATTACK:', attack_name, '---')
+            validate(params, save=False, adversarial=True, adversarial_attack=attack_name)
+            print('--- ENDING ATTACK ---')
+    else:
+        print('\nBlackbox attack. Please load an imitator model.')
+        imitator_state = load_model(param_factory(False))
+        setup_cuda(imitator_state) # Sends imitator network to GPU
+        for attack_name in constants.ATTACKS:
+            print('\n--- COMMENCING ATTACK:', attack_name, '---')
+            validate(params, save=False, adversarial=True, adversarial_attack=attack_name, 
+                     whitebox=False, adversary_model=imitator_state['model'],
+                     adversary_criterion=imitator_state['criterion'])
+            print('--- ENDING ATTACK ---')
     print()
 
     
