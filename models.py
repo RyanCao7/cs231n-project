@@ -71,7 +71,7 @@ class Classifier_B(nn.Module):
         self.conv_3 = nn.Conv2d(128, 128, 5, bias=True)
         self.drop_2 = nn.Dropout(p=0.5)
 
-        self.fc = nn.Linear(1152, 10, bias=True)
+        self.fc = nn.Linear(512, 10, bias=True)
 
     def forward(self, x):
         x = self.drop_1(x)
