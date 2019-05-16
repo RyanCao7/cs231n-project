@@ -438,6 +438,15 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
+def print_models():
+    '''
+    Lists all currently saved models.
+    '''
+    model_folders = glob.glob('models/*')
+    for folder in model_folders:
+        print(folder[folder.rfind('/') + 1:])
+
+
 def print_help():
     '''
     Lists all commands (currently) available in the
@@ -452,7 +461,9 @@ def print_help():
     print('-t: Train. Trains the network using the current program state.')
     print('-v: Validate. Runs the currently loaded network on the validation set.')
     print('-a: Adversarial. Runs the currently loaded network on adversarial examples.')
-    print('-e: Edit. Gives the option to edit the current state.\n')
+    print('-e: Edit. Gives the option to edit the current state.')
+    print('-m: Models. Lists all saved models.')
+    print()
 
 
 def main():
@@ -497,6 +508,8 @@ def main():
             print_state(params)
         elif user_input in ['-a', '--adversarial', 'a', 'adversarial']:
             validate(params, adversarial=True)
+        elif user_input in ['-m', '--models', 'm', 'models']:
+            print_models()
         elif user_input in ['-e', '--edit', 'e', 'edit']:
             edit_state(params)
         elif user_input in ['-q', '--quit', 'q', 'quit']:
