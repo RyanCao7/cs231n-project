@@ -54,7 +54,7 @@ def fgsm_attack(batch, epsilon, batch_grad):
         gradient.
     """
     sign_batch_grad = batch_grad.sign()
-    perturbed_batch = batch + epsilon*sign_batch_grad
+    perturbed_batch = batch + epsilon * sign_batch_grad
     perturbed_batch = torch.clamp(perturbed_batch, 0, 1)
     return perturbed_batch
 
@@ -74,9 +74,8 @@ def get_batch_grad(batch, target, model, loss_fcn, device):
     > batch_grad (tensor) -- Loss gradient with respect to batch.
     """
     
-    if device != torch.device('cpu'):
-        batch = batch.cuda(device, non_blocking=True)
-        target = target.cuda(device, non_blocking=True)
+    batch = batch.to(device)
+    target = target.to(device)
 
     model.eval()
     batch.requires_grad = True

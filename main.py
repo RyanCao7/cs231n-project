@@ -27,6 +27,9 @@ import models
 # For constants
 import constants
 
+# For adversarial batch generation
+import adversary
+
 
 def new_model(params):
     '''
@@ -340,7 +343,7 @@ def train_one_epoch(epoch, params):
     params['train_accuracies'].append(top1.get_avg())
 
 
-def validate(params):
+def validate(params, adversarial=False):
 
     if params['model'] is None:
         print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
@@ -364,6 +367,12 @@ def validate(params):
         end = time.time()
         for i, (data, target) in enumerate(params['val_dataloader']):
             
+            # Generate adversarial attack (currently whitebox mode)
+            if adversarial:
+                data = adversary.attack_batch(data, target, params['model'], 
+                    params['criterion'], attack_name='FGSM',
+                    device=params['device'], epsilon=0.3, alpha=0.5)
+
             data = data.to(params['device'])
             target = target.to(params['device'])
 
@@ -434,6 +443,7 @@ def print_help():
     print('-p: Print. Prints the current program state (e.g. model, epoch, params, etc.)')
     print('-t: Train. Trains the network using the current program state.')
     print('-v: Validate. Runs the currently loaded network on the validation set.')
+    print('-a: Adversarial. Runs the currently loaded network on adversarial examples.')
     print('-e: Edit. Gives the option to edit the current state.\n')
 
 
@@ -466,6 +476,8 @@ def main():
             print_help()
         elif user_input in ['-p', '--print', 'p', 'print']:
             print_state(params)
+        elif user_input in ['-a', '--adversarial', 'a', 'adversarial']:
+            validate(params, adversarial=True)
         elif user_input in ['-e', '--edit', 'e', 'edit']:
             edit_state(params)
         elif user_input in ['-q', '--quit', 'q', 'quit']:
