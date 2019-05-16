@@ -1,11 +1,15 @@
-# TODO: Add VAE and other architectures to this list
-MODEL_ARCHITECTURE_NAMES = [
+# All classifier models
+CLASSIFIERS = [
     'Classifier_A', 
     'Classifier_B', 
     'Classifier_C', 
     'Classifier_D', 
     'Classifier_E',
-    'VAE'
+]
+
+# All VAE implementations
+GENERATORS = [
+    'VANILLA_VAE',
 ]
 
 # Powers of 2.
@@ -18,11 +22,8 @@ ATTACKS = ['FGSM', 'RAND_FGSM'] # , 'CW']
 # torchvision.datasets.[dataset]
 DATASETS = ['MNIST', 'CIFAR-10', 'Fashion-MNIST']
 
-# torch.nn.[loss]
-CRITERIA = ['CrossEntropyLoss'] # TODO: Add more criteria
-
 # torch.optim
-OPTIMIZERS = ['SGD', 'Adam', 'RMSProp']
+OPTIMIZERS = ['SGD', 'Adam'] # , 'RMSProp']
 
 # For state editing
 EDITABLE_STATE_VARS = [
@@ -52,12 +53,12 @@ SETUP_STATE_VARS = [
     'criterion',
 ]
 
-OPTIMIZERS = [
-    'SGD',
-    'Adam',
+# torch.nn.[loss]
+CLASSIFIER_CRITERIA = [
+    'CrossEntropy',
 ]
 
-CRITERIA = [
-    'CrossEntropy',
+# torch.nn.[loss]
+GENERATOR_CRITERIA = [
     'ReconKLD',
 ]

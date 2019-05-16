@@ -20,6 +20,7 @@ from data_utils import get_dataloader
 
 # For training utility functions
 import train_utils
+from train_utils import model_type, bolded # Ease of use
 
 # For models
 import models
@@ -45,11 +46,15 @@ def new_model(params):
     Returns: N/A
     '''
 
+    print('You are initializing a new', bolded(model_type(params)), '.')
+    model_list = constants.GENERATORS if params['is_generator'] else constants.CLASSIFIERS
+    
     # Name
     params['run_name'] = input('Please type the current model run name -> ')
 
-    # Architecture
-    model_string = train_utils.input_from_list(constants.MODEL_ARCHITECTURE_NAMES, 'model')
+    # Architecture. Slightly hacky - allows constants.py to enforce 
+    # which models are generators vs. classifiers.
+    model_string = train_utils.input_from_list(model_list, 'model')
     if model_string == 'Classifier_A':
         params['model'] = models.Classifier_A()
     elif model_string == 'Classifier_B':
@@ -62,12 +67,11 @@ def new_model(params):
         params['model'] = models.Classifier_E()
     elif model_string == 'VAE':
         params['model'] = models.VAE()
+    else:
+        raise Exception(model_string, 'does not exist as a model (yet)!')
         
     # Kaiming initialization for weights
     models.initialize_model(params['model'])
-    
-    # Whether we are training/validating on a generator model
-    params['is_generator'] = (type(params['model']) == models.VAE)
 
     # Setup other state variables
     for state_var in constants.SETUP_STATE_VARS:
@@ -81,8 +85,8 @@ def new_model(params):
         num_threads=params['num_threads'])
 
     # Saves an initial copy
-    if not os.path.isdir('models/' + params['run_name']):
-        os.makedirs('models/' + params['run_name'])
+    if not os.path.isdir('models/' + model_type(params) + '/' + params['run_name'] + '/'):
+        os.makedirs('models/' + model_type(params) + '/' + params['run_name'] + '/')
     train_utils.save_checkpoint(params, 0)
 
 
@@ -90,8 +94,13 @@ def load_model(params):
     '''
     Loads a model from a given checkpoint.
     '''
+    
+    # Grabs model path
+    path = 'models/' + model_type(params) + '/'
+    print('Attempting to load up a', bolded(model_type(params)), '.')
+    
     # Grabs model directory from user
-    model_folders = glob.glob('models/*')
+    model_folders = glob.glob(path + '*')
     if len(model_folders) == 0:
         print('No current models exist. Switching to creating a new model...')
         new_model(params)
@@ -99,12 +108,14 @@ def load_model(params):
 
     # Grabs model choice from user
     print('\n --- All saved models ---')
+#     model_folders = [model_folder[model_folder.rfind('/') + 1:] for model_folder in model_folders]
     user_model_choice = train_utils.input_from_list(model_folders, 'input')
     print('Chosen model:', user_model_choice[user_model_choice.rfind('/') + 1:])
 
     # Grabs checkpoint file from user
     print('\n --- All saved checkpoints ---')
     saved_checkpoint_files = glob.glob(user_model_choice + '/*')
+#     saved_checkpoint_files = [checkpoint[checkpoint.rfind('/') + 1:] for checkpoint in saved_checkpoint_files]
     user_checkpoint_choice = train_utils.input_from_list(saved_checkpoint_files, 'checkpoint')
     print('Chosen checkpoint:', user_checkpoint_choice[user_checkpoint_choice.rfind('/') + 1:], '\n')
 
@@ -132,7 +143,7 @@ def setup_cuda(params):
     cudnn.benchmark = True
 
 
-def param_factory():
+def param_factory(is_generator=False):
     '''
     Constructs a default parameter dictionary to be loaded up 
     upon start of console program.
@@ -157,7 +168,7 @@ def param_factory():
     params['num_threads'] = 4
     
     # Whether our model is a generator-type model
-    params['is_generator'] = False
+    params['is_generator'] = is_generator
 
     # Default - checkpoint every 10 epochs
     params['save_every'] = 10
@@ -240,6 +251,7 @@ def print_state(params):
     > params (dict) -- currently loaded state dict.
     '''
     print('\n --- Loaded state --- \n')
+    print('Current state:', bolded(model_type(params)))
     print('Model:', params['model'], '\n')
     print('Optimizer:', params['optimizer'], '\n')
     print('Device:', params['device'])
@@ -255,7 +267,7 @@ def print_state(params):
     print()
     
 
-def perform_training(params, evaluate=False):
+def perform_training(params):
     '''
     Attempts to train the remaining number of epochs. Will fail
     if no valid model is loaded.
@@ -306,12 +318,19 @@ def perform_training(params, evaluate=False):
 
     
 def train_one_epoch(epoch, params):
-
-    # Saves statistics about epoch
+    '''
+    Trains model given in params['model'] for a single epoch.
+    
+    Keyword arguments:
+    > epoch (int) -- current training epoch
+    > params (dict) -- current state parameters
+    
+    Returns: N/A
+    '''
+    # Saves statistics about epoch (TODO -- pipe to file?)
     batch_time = train_utils.AverageMeter('Time', ':5.3f')
     data_time = train_utils.AverageMeter('Data', ':5.3f')
     losses = train_utils.AverageMeter('Loss', ':.4e')
-    
     if params['is_generator']:
         progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, losses,
                                              prefix='Epoch: [{}]'.format(epoch))
@@ -369,19 +388,29 @@ def train_one_epoch(epoch, params):
     
 
 def validate(params, save=False, adversarial=False, adversarial_attack=None):
-
+    '''
+    Performs validation of params['model'] using 
+    params['val_dataloader']. 
+    
+    Keyword arguments:
+    > params (dict) -- current state parameters
+    > save (bool) -- whether to save val accuracies.
+        Should only be `True` when called from train loop!
+    > adversarial (bool) -- whether to test adversarially.
+    > adversarial_attack (string) -- name of adversarial
+        attack.
+        
+    Returns: N/A
+    '''
     if params['model'] is None:
         print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
         return
     
+    # Sets up training statistics to be logged to console (and possibly file -- TODO -- ?) output.
     if not adversarial:
         print('\n--- BEGIN VALIDATION PASS ---')
-    
-    setup_cuda(params)
-
     batch_time = train_utils.AverageMeter('Time', ':5.3f')
     losses = train_utils.AverageMeter('Loss', ':.4e')
-    
     if params['is_generator']:
         progress = train_utils.ProgressMeter(len(params['val_dataloader']), batch_time, losses,
                                              prefix='Test: ')
@@ -391,8 +420,9 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None):
         progress = train_utils.ProgressMeter(len(params['val_dataloader']), batch_time, losses,
                                              top1, top5, prefix='Test: ')
 
-    # switch to evaluate mode
+    # Switch model to evaluate mode; push to GPU
     params['model'].eval()
+    setup_cuda(params)
 
     end = time.time()
     for i, (data, target) in enumerate(params['val_dataloader']):
@@ -446,6 +476,15 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None):
 
 
 def attack_validate(params):
+    '''
+    Performs all possible attacks (white-box only for now)
+    in constants.ATTACKS.
+    
+    Keyword argument:
+    params (dict) -- current state parameters
+    
+    Returns: N/A
+    '''
     for attack_name in constants.ATTACKS:
         print('\n--- COMMENCING ATTACK:', attack_name, '---')
         validate(params, save=False, adversarial=True, adversarial_attack=attack_name)
@@ -477,6 +516,14 @@ def accuracy(output, target, topk=(1,)):
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
 
+    
+def defend(state_models):
+    '''
+    TODO: NOT IMPLEMENTED YET!
+    '''
+    classifier, generator = state_models[0]['model'], state_models[1]['model']
+    print('WARNING: NOT IMPLEMENTED YET!')
+    
 
 def print_models():
     '''
@@ -487,80 +534,114 @@ def print_models():
         print(folder[folder.rfind('/') + 1:])
         
 
-def print_help():
+def print_help(params, param_number):
     '''
     Lists all commands (currently) available in the
     main console.
+    
+    > Keyword arguments:
+    params (dict) -- current state dict.
+    param_number (int ~ [0, 1]) -- classifier or generator,
+        respectively.
     '''
     print('List of commands: ')
     print('-h: Help command. Prints this list of helpful commands!')
     print('-q: Quit. Immediately terminates the program.')
     print('-l: Load model. Loads a specific model/checkpoint into current program state.')
-    print('-n: New model. Copies server metadata into local computer.')
+    print('-n: New model. Creates new model from scratch.')
     print('-p: Print. Prints the current program state (e.g. model, epoch, params, etc.)')
     print('-t: Train. Trains the network using the current program state.')
     print('-v: Validate. Runs the currently loaded network on the validation set.')
-    print('-a: Adversarial. Runs the currently loaded network on adversarial examples.')
     print('-e: Edit. Gives the option to edit the current state.')
     print('-m: Models. Lists all saved models.')
-    print('-s: Sample. Samples from the VAE.') # TODO: Make this more general
+    print('-d: Defend. Runs the combined generator + classifier network on adversarial examples.')
+    
+    # Classifier state only
+    if param_number == 0:
+        print('-a: Adversarial. Runs the currently loaded network on adversarial examples.')
+        
+    # Generator state only
+    elif param_number == 1:
+        print('-g: Generate. Generate samples from the VAE.') # TODO: Make this more general
+    else:
+        raise Exception('Woah. How did you get here?')
+
     print()
 
 
 def main():
     
     # Initialize state parameters
-    params = param_factory()
+    # (classifier, generator)
+    state_params = [param_factory(False), param_factory(True)]
+    param_number = 0 # Classifier -> 0 || Generator -> 1
     
-    # Create directories
-    if not os.path.isdir('datasets/'):
-        os.makedirs('datasets/')
-    if not os.path.isdir('models/'):
-        os.makedirs('models/')
-    if not os.path.isdir('graphs/'):
-        os.makedirs('graphs/')
-    if not os.path.isdir('visuals/'): # TODO: Organize this better!
-        os.makedirs('visuals/')
+    # Create local directories
+    train_utils.initialize_dirs()
     
-    # Some error message about random seed
-    if params['seed'] is not None:
-        random.seed(params['seed'])
-        torch.manual_seed(params['seed'])
-        cudnn.deterministic = True
-        warnings.warn('You have chosen to seed training. '
-                      'This will turn on the CUDNN deterministic setting, '
-                      'which can slow down your training considerably! '
-                      'You may see unexpected behavior when restarting '
-                      'from checkpoints.')
+#     # Some error message about random seed
+#     if params['seed'] is not None:
+#         random.seed(params['seed'])
+#         torch.manual_seed(params['seed'])
+#         cudnn.deterministic = True
+#         warnings.warn('You have chosen to seed training. '
+#                       'This will turn on the CUDNN deterministic setting, '
+#                       'which can slow down your training considerably! '
+#                       'You may see unexpected behavior when restarting '
+#                       'from checkpoints.')
 
     # Console-style program
     while True:
         print('============== CS231n Project Console ==============')
+        print('\nYou are currently in the', 
+              bolded('classifier' if param_number == 0 else 'generator'), 'state.')
+        print('Type `s` to swap states. Note that some commands are only available in one state.\n')
         user_input = input('What would you like to do? (type -h for help) -> ')
         if user_input in ['-t', '--train', 't', 'train']:
-            perform_training(params)
+            perform_training(state_params[param_number])
         elif user_input in ['-v', '--validate', 'v', 'validate']:
-            validate(params)
+            validate(state_params[param_number])
         elif user_input in ['-l', '--load', 'l', 'load']:
-            params = load_model(params)
+            state_params[param_number] = load_model(state_params[param_number])
         elif user_input in ['-n', '--new', 'n', 'new']:
-            new_model(params)
+            new_model(state_params[param_number])
         elif user_input in ['-h', '--help', 'h', 'help'] or user_input.strip() == '':
-            print_help()
+            print_help(state_params[param_number], param_number)
         elif user_input in ['-p', '--print', 'p', 'print']:
-            print_state(params)
+            print_state(state_params[param_number])
         elif user_input in ['-a', '--adversarial', 'a', 'adversarial']:
-            attack_validate(params)
+            if not params['is_generator']:
+                attack_validate(state_params[param_number])
+            else:
+                print('Can\'t attack - model is not a classifier!')
+                print('(NOT IMPLEMENTED YET) - Use \'d\' to perform a defended attack.')
         elif user_input in ['-m', '--models', 'm', 'models']:
             print_models()
         elif user_input in ['-e', '--edit', 'e', 'edit']:
-            edit_state(params)
-        elif user_input in ['-s', '--sample', 's', 'sample']:
+            edit_state(state_params[param_number])
+        elif user_input in ['-g', '--generate', 'g', 'generate']:
+            params = state_params[param_number]
             if params['is_generator']:
                 viz_utils.sample_VAE(params['model'], params['device'],
                                      params['cur_epoch'], 'models/' + params['run_name'])
             else:
                 print('Can\'t sample - model is not generative!')
+                
+        elif user_input in ['-d', '--defend', 'd', 'defend']:
+            if state_params[1]['model'] is None:
+                print('Can\'t defend - no generative model loaded.')
+            elif state_params[0]['model'] is None:
+                print('Can\'t defend - no classifier model loaded.')
+            else:
+                defend(state_params)
+        elif user_input in ['-s', '--swap', 's', 'swap']:
+            print('Switching from the', 
+                  bolded('classifier' if param_number == 0 else 'generator'),
+                  'state to the', bolded('classifier' if param_number == 1 else 'generator'),
+                  'state.\n')
+            
+            # Yay group theory! Z / 2Z
+            param_number = (param_number + 1) % 2
         elif user_input in ['-q', '--quit', 'q', 'quit']:
             print()
             exit()

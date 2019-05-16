@@ -27,33 +27,52 @@ def save_checkpoint(params, epoch):
     # if is_best:
     #     shutil.copyfile(filename, 'model_best.pth.tar')
 
+    
+def model_type(params):
+    '''
+    One-liner helper function for printing
+    correct model type.
+    '''
+    return ('generator' if params['is_generator'] else 'classifier')
+    
 
-def plot_accuracies(params):
-    if not os.path.isdir('graphs/' + params['run_name'] + '/'):
-        os.makedirs('graphs/' + params['run_name'] + '/')
-    plt.figure(figsize=(10, 8))
-    plt.title('Accuracies')
-    plt.plot(params['train_accuracies'], '-o', label='Training Accuracy')
-    plt.plot(params['val_accuracies'], '-o', label='Validation Accuracy')
-    plt.xlabel('Epoch')
-    plt.legend(loc='lower right')
-    # plt.gcf().set_size_inches(15, 12)
-    plt.savefig('graphs/' + params['run_name'] + '/' + params['run_name'] + '_accuracies.png')
-    plt.close()
- 
+def initialize_dirs():
+    '''
+    Creates local needed directories for saving data.
+    '''
+    if not os.path.isdir('datasets/'):
+        os.makedirs('datasets/')
+    if not os.path.isdir('models/classifiers/'):
+        os.makedirs('models/classifiers/')
+    if not os.path.isdir('models/generators/'):
+        os.makedirs('models/generators/')
+    if not os.path.isdir('graphs/'):
+        os.makedirs('graphs/')
+    if not os.path.isdir('visuals/'): # TODO: Organize this better/actually save here!
+        os.makedirs('visuals/')
+    
 
-def plot_losses(params):
-    if not os.path.isdir('graphs/' + params['run_name'] + '/'):
-        os.makedirs('graphs/' + params['run_name'] + '/')
-    plt.figure(figsize=(10, 8))
-    plt.title('Losses')
-    plt.plot(params['train_losses'], '-o', label='Training Loss')
-    plt.plot(params['val_losses'], '-o', label='Validation Loss')
-    plt.xlabel('Epoch')
-    plt.legend(loc='lower right')
-    # plt.gcf().set_size_inches(15, 12)
-    plt.savefig('graphs/' + params['run_name'] + '/' + params['run_name'] + '_losses.png')
-    plt.close()
+class color:
+    '''
+    Color constants for colored text.
+    '''
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    DARKCYAN = '\033[36m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
+
+
+def bolded(msg):
+    '''
+    Bolds the given string when printed.
+    '''
+    return color.BOLD + msg + color.END
 
 
 def store_user_choice(params, keyword):
@@ -88,6 +107,8 @@ def store_user_choice(params, keyword):
         params['evaluate'] = get_yes_or_no('Evaluate on validation set?')
     elif keyword == 'seed':
         params['seed'] = input_from_range(-1e99, 1e99, 'random seed')
+        
+    # Optimizer choice
     elif keyword == 'optimizer':
         optimizer_choice = input_from_list(constants.OPTIMIZERS, 'optimizer')
         if optimizer_choice == 'SGD':
@@ -100,9 +121,10 @@ def store_user_choice(params, keyword):
                                                   params['learning_rate'],
                                                   betas=(0.9, 0.999), # TODO: ALLOW USER TO CHOOSE ADAM BETAS
                                                   weight_decay=params['weight_decay'])
-            
         else:
             raise Exception('Optimizer', optimizer_choice, ' does not exist (yet).')
+            
+    # Loss function
     elif keyword == 'criterion':
         criterion_choice = input_from_list(constants.CRITERIA, 'criterion')
         if criterion_choice == 'CrossEntropy':
@@ -113,6 +135,32 @@ def store_user_choice(params, keyword):
             raise Exception('Criterion', criterion_choice, ' does not exist (yet).')
     else:
         print('\'' + keyword + '\'', 'is not editable in state dict.')
+
+        
+def float_input(prompt):
+    '''
+    Robust float input getter.
+    '''
+    while True:
+        try:
+            user_input = float(input(prompt))
+            return user_input
+        except ValueError:
+            print('Please enter a float!')
+            pass
+
+    
+def int_input(prompt):
+    '''
+    Robust int input getter.
+    '''
+    while True:
+        try:
+            user_input = int(input(prompt))
+            return user_input
+        except ValueError:
+            print('Please enter an int!')
+            pass
 
         
 # TODO: Implement default
@@ -129,10 +177,10 @@ def input_float_range(low, high, prompt):
     Returns: user_input (float)
     > user_input -- user's final input, within [low, high].
     '''
-    user_input = float(input(prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> '))
+    user_input = float_input(prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> ')
     if user_input < low or user_input > high:
         print('Error: must be within ' + str(low) + ' to ' + str(high) + ', inclusive.')
-        user_input = float(input(prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> '))
+        user_input = float_input(prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> ')
     return user_input
 
 
@@ -161,10 +209,10 @@ def input_from_range(low, high, prompt):
     Returns: user_input (int)
     > user_input -- user's final input, within [low, high].
     '''
-    user_input = int(input('Number of ' + prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> '))
+    user_input = int_input('Number of ' + prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> ')
     if user_input < low or user_input > high:
         print('Error: must be within ' + str(low) + ' to ' + str(high) + ', inclusive.')
-        user_input = int(input('Number of ' + prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> '))
+        user_input = int_input('Number of ' + prompt + '? (range: [' + str(low) + ', ' + str(high) + ']) -> ')
     return user_input
 
 
@@ -185,9 +233,9 @@ def input_from_list(the_list, item, default=None):
 
     for idx, list_item in enumerate(the_list):
         print(str((idx + 1)) + ':', list_item)
-    input_idx = int(input('Please type the index of the ' + item + ' you wish to choose (enter for default) -> ')) - 1
+    input_idx = int_input('Please type the index of the ' + item + ' you wish to choose (enter for default) -> ') - 1
     while input_idx not in range(len(the_list)):
-        input_idx = int(input('Try again. Please type the index of the ' + item + ' you wish to choose (enter for default) -> ')) - 1
+        input_idx = int_input('Try again. Please type the index of the ' + item + ' you wish to choose (enter for default) -> ') - 1
     return the_list[input_idx]
 
 
