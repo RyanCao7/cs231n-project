@@ -118,7 +118,7 @@ def setup_cuda(params):
     '''
     Loads model onto GPU if one is available.
     '''
-    print("Use {} for training".format(params['device']))
+    print("Running on device: {}".format(params['device']))
     params['model'] = params['model'].to(params['device'])
 
     # Should make things faster if input size is consistent.
