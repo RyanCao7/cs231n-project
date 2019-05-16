@@ -129,7 +129,9 @@ def store_user_choice(params, keyword):
             
     # Loss function
     elif keyword == 'criterion':
-        criterion_choice = input_from_list(constants.CRITERIA, 'criterion')
+        criteria = (constants.GENERATOR_CRITERIA if params['is_generator'] 
+                    else constants.CLASSIFIER_CRITERIA)
+        criterion_choice = input_from_list(criteria, 'criterion')
         if criterion_choice == 'CrossEntropy':
             params['criterion'] = nn.CrossEntropyLoss().to(params['device'])
         elif criterion_choice == 'ReconKLD':
