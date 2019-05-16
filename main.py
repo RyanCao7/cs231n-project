@@ -41,6 +41,8 @@ def new_model(params):
 
     Returns: N/A
     '''
+    
+    params = param_factory()
 
     # Name
     params['run_name'] = input('Please type the current model run name -> ')
