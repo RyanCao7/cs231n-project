@@ -1,4 +1,6 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 
 def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM', 

@@ -166,7 +166,7 @@ def param_factory():
     params['device'] = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     # define loss function (criterion) and optimizer
-    params['criterion'] = nn.CrossEntropyLoss().cuda(params['device'])
+    params['criterion'] = nn.CrossEntropyLoss().to(params['device'])
 
     # Optimizer - THIS MUST GET CONSTRUCTED LATER
     params['optimizer'] = None
@@ -363,18 +363,23 @@ def validate(params, adversarial=False):
     # switch to evaluate mode
     params['model'].eval()
 
-    with torch.no_grad():
-        end = time.time()
-        for i, (data, target) in enumerate(params['val_dataloader']):
-            
-            # Generate adversarial attack (currently whitebox mode)
-            if adversarial:
-                data = adversary.attack_batch(data, target, params['model'], 
-                    params['criterion'], attack_name='FGSM',
-                    device=params['device'], epsilon=0.3, alpha=0.5)
+    end = time.time()
+    for i, (data, target) in enumerate(params['val_dataloader']):
 
-            data = data.to(params['device'])
-            target = target.to(params['device'])
+        # Pushes data to GPU
+        data = data.to(params['device'])
+        target = target.to(params['device'])
+
+        # Generate adversarial attack (currently whitebox mode)
+        if adversarial:
+            
+            data.requires_grad = True
+
+            data = adversary.attack_batch(data, target, params['model'], 
+                params['criterion'], attack_name='FGSM',
+                device=params['device'], epsilon=0.3, alpha=0.5)
+                
+        with torch.no_grad():
 
             # compute output
             output = params['model'](data)
@@ -393,13 +398,13 @@ def validate(params, adversarial=False):
             if i % params['print_frequency'] == 0:
                 progress.print(i)
 
-        # TODO: this should also be done with the ProgressMeter
-        print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
-              .format(top1=top1, top5=top5))
+    # TODO: this should also be done with the ProgressMeter
+    print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
+          .format(top1=top1, top5=top5))
 
-        # Storing validation losses/accuracies
-        params['val_losses'].append(losses.get_avg())
-        params['val_accuracies'].append(top1.get_avg())
+    # Storing validation losses/accuracies
+    params['val_losses'].append(losses.get_avg())
+    params['val_accuracies'].append(top1.get_avg())
 
     return top1.avg
 

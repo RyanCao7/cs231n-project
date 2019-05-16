@@ -11,7 +11,6 @@ def initialize_model(model):
             init.kaiming_normal_(param, mode='fan_in', nonlinearity='relu')
         elif name.endswith('.bias'):
             init.constant_(param, 0)
-        print(name, param)
 
 class Classifier_A(nn.Module):
     '''
