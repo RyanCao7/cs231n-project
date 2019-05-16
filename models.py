@@ -12,6 +12,7 @@ def initialize_model(model):
         elif name.endswith('.bias'):
             init.constant_(param, 0)
 
+            
 class Classifier_A(nn.Module):
     '''
     An implementation of Classifier A used by Samangouei et al in their paper 
@@ -51,6 +52,7 @@ class Classifier_A(nn.Module):
 
         return out
 
+    
 class Classifier_B(nn.Module):
     '''
     An implementation of Classifier B used by Samangouei et al in their paper 
@@ -87,6 +89,7 @@ class Classifier_B(nn.Module):
         out = self.fc(hidden_3)
         return out
 
+    
 class Classifier_C(nn.Module):
     '''
     An implementation of Classifier C used by Samangouei et al in their paper 
@@ -119,6 +122,7 @@ class Classifier_C(nn.Module):
         out = self.fc_2(hidden_3)
         return out
 
+    
 class Classifier_D(nn.Module):
     '''
     An implementation of Classifier D used by Samangouei et al in their paper 
@@ -148,6 +152,7 @@ class Classifier_D(nn.Module):
         out = self.fc_3(hidden_2)
         return out
 
+    
 class Classifier_E(nn.Module):
     '''
     An implementation of Classifier E used by Samangouei et al in their paper
@@ -173,10 +178,11 @@ class Classifier_E(nn.Module):
         out = self.fc_3(hidden_2)
         return out
 
+    
 class VAE(nn.Module):
     '''
     An implementation of the paper "Stochastic Gradient VB and the Variational
-    Auto-Encoder" by Kingma and Welling. Shameless ported and modified from the
+    Auto-Encoder" by Kingma and Welling. Shamelessly ported and modified from the
     PyTorch example library.
     '''
 
@@ -205,4 +211,4 @@ class VAE(nn.Module):
     def forward(self, x):
         mu, logvar = self.encode(x.view(-1, 784))
         z = self.reparameterize(mu, logvar)
-        return self.decode(z), mu, logvar
+        return x, self.decode(z), mu, logvar

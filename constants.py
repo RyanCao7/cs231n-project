@@ -48,4 +48,16 @@ SETUP_STATE_VARS = [
     'save_every',
     'evaluate',
     'seed',
+    'optimizer',
+    'criterion',
+]
+
+OPTIMIZERS = [
+    'SGD',
+    'Adam',
+]
+
+CRITERIA = [
+    'CrossEntropy',
+    'ReconKLD',
 ]

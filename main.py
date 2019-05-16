@@ -30,6 +30,9 @@ import constants
 # For adversarial batch generation
 import adversary
 
+# For VAE-generated visualization
+import viz_utils
+
 
 def new_model(params):
     '''
@@ -41,8 +44,6 @@ def new_model(params):
 
     Returns: N/A
     '''
-    
-    params = param_factory()
 
     # Name
     params['run_name'] = input('Please type the current model run name -> ')
@@ -61,19 +62,17 @@ def new_model(params):
         params['model'] = models.Classifier_E()
     elif model_string == 'VAE':
         params['model'] = models.VAE()
+        
+    # Kaiming initialization for weights
     models.initialize_model(params['model'])
+    
+    # Whether we are training/validating on a generator model
+    params['is_generator'] = (type(params['model']) == models.VAE)
 
     # Setup other state variables
     for state_var in constants.SETUP_STATE_VARS:
         train_utils.store_user_choice(params, state_var)
         print()
-
-    # TODO: Allow user to pick criteria!!!
-
-    # Optimizer - TODO: Allow user to pick optimizer
-    params['optimizer'] = torch.optim.SGD(params['model'].parameters(), params['learning_rate'],
-                                momentum=params['momentum'],
-                                weight_decay=params['weight_decay'])
 
     # Grabs dataloaders. TODO: Prompt for val split/randomize val indices
     params['train_dataloader'], params['val_dataloader'], params['test_dataloader'] = get_dataloader(
@@ -113,6 +112,11 @@ def load_model(params):
     print('Loading model...')
     loaded = torch.load(user_checkpoint_choice)
     print('Finished loading model! Use -p to print current state.')
+    
+    # Backwards compatibility
+    if 'is_generator' not in loaded:
+        loaded['is_generator'] = False
+        
     return loaded
 
 
@@ -151,6 +155,9 @@ def param_factory():
     params['print_frequency'] = 10
     params['best_val_acc'] = 0.
     params['num_threads'] = 4
+    
+    # Whether our model is a generator-type model
+    params['is_generator'] = False
 
     # Default - checkpoint every 10 epochs
     params['save_every'] = 10
@@ -168,7 +175,7 @@ def param_factory():
     params['device'] = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     # define loss function (criterion) and optimizer
-    params['criterion'] = nn.CrossEntropyLoss().to(params['device'])
+    params['criterion'] = None
 
     # Optimizer - THIS MUST GET CONSTRUCTED LATER
     params['optimizer'] = None
@@ -263,6 +270,7 @@ def perform_training(params, evaluate=False):
         return
 
     setup_cuda(params)
+    print('\n--- COMMENCE TRAINING ---\n')
     
     # Training/val loop
     for epoch in range(params['cur_epoch'] + 1, params['total_epochs'] + 1):
@@ -279,7 +287,8 @@ def perform_training(params, evaluate=False):
         acc1 = validate(params, save=True, adversarial=False)
 
         # Update best val accuracy
-        params['best_val_acc'] = max(acc1, params['best_val_acc'])
+        if not params['is_generator']:
+            params['best_val_acc'] = max(acc1, params['best_val_acc'])
 
         # Save checkpoint every 'save_every' epochs.
         if epoch % params['save_every'] == 0:
@@ -293,41 +302,51 @@ def perform_training(params, evaluate=False):
         train_utils.plot_losses(params)
 
     train_utils.save_checkpoint(params, params['total_epochs'])
+    print('\n--- END TRAINING ---\n')
 
-
+    
 def train_one_epoch(epoch, params):
 
-    # No idea what this is for now...
+    # Saves statistics about epoch
     batch_time = train_utils.AverageMeter('Time', ':5.3f')
     data_time = train_utils.AverageMeter('Data', ':5.3f')
     losses = train_utils.AverageMeter('Loss', ':.4e')
-    top1 = train_utils.AverageMeter('Acc@1', ':5.2f')
-    top5 = train_utils.AverageMeter('Acc@5', ':5.2f')
-    progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, data_time, losses, top1,
-                             top5, prefix="Epoch: [{}]".format(epoch))
+    
+    if params['is_generator']:
+        progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, losses,
+                                             prefix='Epoch: [{}]'.format(epoch))
+    else:
+        top1 = train_utils.AverageMeter('Acc@1', ':5.2f')
+        top5 = train_utils.AverageMeter('Acc@5', ':5.2f')
+        progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, losses,
+                                             top1, top5, prefix='Epoch: [{}]'.format(epoch))
 
     # Switch to train mode. Important for dropout and batchnorm.
     params['model'].train()
 
     end = time.time()
     for i, (data, target) in enumerate(params['train_dataloader']):
-        # measure data loading time
+        # Measure data loading time
         data_time.update(time.time() - end)
 
+        # Sends input/label tensors to GPU
         data = data.to(params['device'])
         target = target.to(params['device'])
 
-        # compute output
+        # Compute output
         output = params['model'](data)
+        
+        # Evaluate loss
         loss = params['criterion'](output, target)
-
-        # measure accuracy and record loss
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
         losses.update(loss.item(), data.size(0))
-        top1.update(acc1[0], data.size(0))
-        top5.update(acc5[0], data.size(0))
 
-        # compute gradient and do SGD step
+        # Measure accuracy and record loss
+        if not params['is_generator']:
+            acc1, acc5 = accuracy(output, target, topk=(1, 5))
+            top1.update(acc1[0], data.size(0))
+            top5.update(acc5[0], data.size(0))
+
+        # Compute gradient and do SGD step
         params['optimizer'].zero_grad()
         loss.backward()
         params['optimizer'].step()
@@ -345,8 +364,9 @@ def train_one_epoch(epoch, params):
 
     # Storing training losses/accuracies
     params['train_losses'].append(losses.get_avg())
-    params['train_accuracies'].append(top1.get_avg())
-
+    if not params['is_generator']:
+        params['train_accuracies'].append(top1.get_avg())
+    
 
 def validate(params, save=False, adversarial=False, adversarial_attack=None):
 
@@ -361,10 +381,15 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None):
 
     batch_time = train_utils.AverageMeter('Time', ':5.3f')
     losses = train_utils.AverageMeter('Loss', ':.4e')
-    top1 = train_utils.AverageMeter('Acc@1', ':5.2f')
-    top5 = train_utils.AverageMeter('Acc@5', ':5.2f')
-    progress = train_utils.ProgressMeter(len(params['val_dataloader']), batch_time, losses, top1, top5,
-                             prefix='Test: ')
+    
+    if params['is_generator']:
+        progress = train_utils.ProgressMeter(len(params['val_dataloader']), batch_time, losses,
+                                             prefix='Test: ')
+    else:
+        top1 = train_utils.AverageMeter('Acc@1', ':5.2f')
+        top5 = train_utils.AverageMeter('Acc@5', ':5.2f')
+        progress = train_utils.ProgressMeter(len(params['val_dataloader']), batch_time, losses,
+                                             top1, top5, prefix='Test: ')
 
     # switch to evaluate mode
     params['model'].eval()
@@ -388,12 +413,13 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None):
             # compute output
             output = params['model'](data)
             loss = params['criterion'](output, target)
-
-            # measure accuracy and record loss
-            acc1, acc5 = accuracy(output, target, topk=(1, 5))
             losses.update(loss.item(), data.size(0))
-            top1.update(acc1[0], data.size(0))
-            top5.update(acc5[0], data.size(0))
+            
+            # measure accuracy and record loss
+            if not params['is_generator']:
+                acc1, acc5 = accuracy(output, target, topk=(1, 5))
+                top1.update(acc1[0], data.size(0))
+                top5.update(acc5[0], data.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)
@@ -404,18 +430,19 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None):
     
     # Print final accuracy/loss
     progress.print(len(params['val_dataloader']))
-    print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
+    
+    if not params['is_generator']:
+        print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
           .format(top1=top1, top5=top5))
 
     # Storing validation losses/accuracies
     if save:
         params['val_losses'].append(losses.get_avg())
-        params['val_accuracies'].append(top1.get_avg())
+        if not params['is_generator']:
+            params['val_accuracies'].append(top1.get_avg())
 
     if not adversarial:
         print('--- END VALIDATION PASS ---\n')
-        
-    return top1.avg
 
 
 def attack_validate(params):
@@ -425,6 +452,7 @@ def attack_validate(params):
         print('--- ENDING ATTACK ---')
     print()
 
+    
 # TODO: Allow this to be altered
 def adjust_learning_rate(epoch, params):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
@@ -457,7 +485,7 @@ def print_models():
     model_folders = glob.glob('models/*')
     for folder in model_folders:
         print(folder[folder.rfind('/') + 1:])
-
+        
 
 def print_help():
     '''
@@ -475,6 +503,7 @@ def print_help():
     print('-a: Adversarial. Runs the currently loaded network on adversarial examples.')
     print('-e: Edit. Gives the option to edit the current state.')
     print('-m: Models. Lists all saved models.')
+    print('-s: Sample. Samples from the VAE.') # TODO: Make this more general
     print()
 
 
@@ -490,6 +519,8 @@ def main():
         os.makedirs('models/')
     if not os.path.isdir('graphs/'):
         os.makedirs('graphs/')
+    if not os.path.isdir('visuals/'): # TODO: Organize this better!
+        os.makedirs('visuals/')
     
     # Some error message about random seed
     if params['seed'] is not None:
@@ -524,6 +555,12 @@ def main():
             print_models()
         elif user_input in ['-e', '--edit', 'e', 'edit']:
             edit_state(params)
+        elif user_input in ['-s', '--sample', 's', 'sample']:
+            if params['is_generator']:
+                viz_utils.sample_VAE(params['model'], params['device'],
+                                     params['cur_epoch'], 'models/' + params['run_name'])
+            else:
+                print('Can\'t sample - model is not generative!')
         elif user_input in ['-q', '--quit', 'q', 'quit']:
             print()
             exit()

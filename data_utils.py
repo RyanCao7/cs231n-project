@@ -118,11 +118,11 @@ def transform_factory(dataset_name='MNIST'):
     data_transforms = {
         'train': transforms.Compose([
             transforms.ToTensor(),
-            normalize_transform
+#             normalize_transform
         ]),
         'test': transforms.Compose([
             transforms.ToTensor(),
-            normalize_transform
+#             normalize_transform
         ]),
     }
 

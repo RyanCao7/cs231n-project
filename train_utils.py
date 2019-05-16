@@ -1,7 +1,9 @@
 import torch
-import constants
+import torch.nn as nn
 import matplotlib.pyplot as plt
 import os
+import constants
+import loss_functions
 
 
 # TODO: Make this save for best val accuracy epoch
@@ -86,9 +88,33 @@ def store_user_choice(params, keyword):
         params['evaluate'] = get_yes_or_no('Evaluate on validation set?')
     elif keyword == 'seed':
         params['seed'] = input_from_range(-1e99, 1e99, 'random seed')
+    elif keyword == 'optimizer':
+        optimizer_choice = input_from_list(constants.OPTIMIZERS, 'optimizer')
+        if optimizer_choice == 'SGD':
+            params['optimizer'] = torch.optim.SGD(params['model'].parameters(),
+                                                  params['learning_rate'],
+                                                  momentum=params['momentum'],
+                                                  weight_decay=params['weight_decay'])
+        elif optimizer_choice == 'Adam':
+            params['optimizer'] = torch.optim.Adam(params['model'].parameters(),
+                                                  params['learning_rate'],
+                                                  betas=(0.9, 0.999), # TODO: ALLOW USER TO CHOOSE ADAM BETAS
+                                                  weight_decay=params['weight_decay'])
+            
+        else:
+            raise Exception('Optimizer', optimizer_choice, ' does not exist (yet).')
+    elif keyword == 'criterion':
+        criterion_choice = input_from_list(constants.CRITERIA, 'criterion')
+        if criterion_choice == 'CrossEntropy':
+            params['criterion'] = nn.CrossEntropyLoss().to(params['device'])
+        elif criterion_choice == 'ReconKLD':
+            params['criterion'] = loss_functions.ReconKLD().to(params['device'])
+        else:
+            raise Exception('Criterion', criterion_choice, ' does not exist (yet).')
     else:
         print('\'' + keyword + '\'', 'is not editable in state dict.')
 
+        
 # TODO: Implement default
 def input_float_range(low, high, prompt):
     '''
