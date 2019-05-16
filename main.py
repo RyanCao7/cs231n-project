@@ -346,13 +346,14 @@ def train_one_epoch(epoch, params):
     params['train_accuracies'].append(top1.get_avg())
 
 
-def validate(params, save=False, adversarial=False):
+def validate(params, save=False, adversarial=False, adversarial_attack=None):
 
     if params['model'] is None:
         print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
         return
     
-    print('--- BEGIN VALIDATION PASS ---')
+    if not adversarial:
+        print('\n--- BEGIN VALIDATION PASS ---')
     
     setup_cuda(params)
 
@@ -377,7 +378,7 @@ def validate(params, save=False, adversarial=False):
         if adversarial:
             data.requires_grad = True
             data = adversary.attack_batch(data, target, params['model'], 
-                params['criterion'], attack_name='FGSM',
+                params['criterion'], attack_name=adversarial_attack,
                 device=params['device'], epsilon=0.3, alpha=0.5)
                 
         with torch.no_grad():
@@ -400,6 +401,7 @@ def validate(params, save=False, adversarial=False):
                 progress.print(i)
     
     # Print final accuracy/loss
+    progress.print(len(params['val_dataloader']))
     print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
           .format(top1=top1, top5=top5))
 
@@ -408,10 +410,18 @@ def validate(params, save=False, adversarial=False):
         params['val_losses'].append(losses.get_avg())
         params['val_accuracies'].append(top1.get_avg())
 
-    print('--- END VALIDATION PASS ---\n')
+    if not adversarial:
+        print('--- END VALIDATION PASS ---\n')
         
     return top1.avg
 
+
+def attack_validate(params):
+    for attack_name in constants.ATTACKS:
+        print('\n--- COMMENCING ATTACK:', attack_name, '---')
+        validate(params, save=False, adversarial=True, adversarial_attack=attack_name)
+        print('--- ENDING ATTACK ---')
+    print()
 
 # TODO: Allow this to be altered
 def adjust_learning_rate(epoch, params):
@@ -507,7 +517,7 @@ def main():
         elif user_input in ['-p', '--print', 'p', 'print']:
             print_state(params)
         elif user_input in ['-a', '--adversarial', 'a', 'adversarial']:
-            validate(params, adversarial=True)
+            attack_validate(params)
         elif user_input in ['-m', '--models', 'm', 'models']:
             print_models()
         elif user_input in ['-e', '--edit', 'e', 'edit']:

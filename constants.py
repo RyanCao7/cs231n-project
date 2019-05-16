@@ -12,7 +12,8 @@ MODEL_ARCHITECTURE_NAMES = [
 BATCH_SIZES = [1, 4, 8, 16, 32, 64, 128, 256]
 
 # Adversarial attack methods
-ATTACKS = ['FGSM', 'RAND-FGSM', 'CW']
+### CW NOT IMPLEMENTED YET ###
+ATTACKS = ['FGSM', 'RAND_FGSM'] # , 'CW']
 
 # torchvision.datasets.[dataset]
 DATASETS = ['MNIST', 'CIFAR-10', 'Fashion-MNIST']

@@ -334,3 +334,6 @@ datasets/*
 
 # Ignores all model files
 models/*
+
+# Ignores all graphs
+graphs/*

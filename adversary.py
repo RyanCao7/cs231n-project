@@ -29,13 +29,13 @@ def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM',
         return fgsm_attack(batch, epsilon, get_batch_grad(batch, target, model, 
                                                           loss_fcn, device))
     elif attack_name == 'RAND_FGSM':
-        noisy_batch = batch + alpha * torch.rand_like(batch)
+        noisy_batch = (batch + alpha * torch.rand_like(batch)).clone().detach()
         return fgsm_attack(noisy_batch, epsilon, get_batch_grad(noisy_batch,
                                                                 target, model,
                                                                 loss_fcn, device))
     elif attack_name == 'CW':
         # TODO Implement Carlini-Wagner Attack
-        pass
+        return batch
     else:
         raise Exception('Error: attack_name must be one of {\'FGSM\', \'RAND_FGSM\', '
                         '\'CW\'}.')
@@ -57,7 +57,7 @@ def fgsm_attack(batch, epsilon, batch_grad):
     """
     sign_batch_grad = batch_grad.sign()
     perturbed_batch = batch + epsilon * sign_batch_grad
-    perturbed_batch = torch.clamp(perturbed_batch, 0, 1)
+    perturbed_batch = torch.clamp(perturbed_batch, -1, 1)
     return perturbed_batch
 
 def get_batch_grad(batch, target, model, loss_fcn, device):
