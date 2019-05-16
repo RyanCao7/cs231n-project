@@ -310,8 +310,8 @@ def perform_training(params):
         params['cur_epoch'] += 1
 
         # Update train/val accuracy/loss plots
-        train_utils.plot_accuracies(params)
-        train_utils.plot_losses(params)
+        viz_utils.plot_accuracies(params)
+        viz_utils.plot_losses(params)
 
     train_utils.save_checkpoint(params, params['total_epochs'])
     print('\n--- END TRAINING ---\n')
@@ -387,7 +387,8 @@ def train_one_epoch(epoch, params):
         params['train_accuracies'].append(top1.get_avg())
     
 
-def validate(params, save=False, adversarial=False, adversarial_attack=None):
+def validate(params, save=False, adversarial=False, adversarial_attack=None, 
+             whitebox=True, adversary_model=None, adversary_criterion=None):
     '''
     Performs validation of params['model'] using 
     params['val_dataloader']. 
@@ -399,6 +400,11 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None):
     > adversarial (bool) -- whether to test adversarially.
     > adversarial_attack (string) -- name of adversarial
         attack.
+    > whitebox (bool) -- whether to use a whitebox attack.
+    > adversary_model (torch.nn.Module) -- pre-trained
+        model to generate black-box attacks with.
+    > adversary_criterion (torch.nn.[loss]) -- loss func
+        for the black-box "imitator" model.
         
     Returns: N/A
     '''
@@ -431,12 +437,17 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None):
         data = data.to(params['device'])
         target = target.to(params['device'])
 
-        # Generate adversarial attack (currently whitebox mode)
+        # Generate adversarial attack (default whitebox mode)
         if adversarial:
-            data.requires_grad = True
-            data = adversary.attack_batch(data, target, params['model'], 
-                params['criterion'], attack_name=adversarial_attack,
-                device=params['device'], epsilon=0.3, alpha=0.5)
+            
+            if whitebox:
+                data = adversary.attack_batch(data, target, params['model'], 
+                    params['criterion'], attack_name=adversarial_attack,
+                    device=params['device'], epsilon=0.3, alpha=0.05)
+            else:
+                data = adversary.attack_batch(data, target, adversary_model, 
+                    adversary_criterion, attack_name=adversarial_attack,
+                    device=params['device'], epsilon=0.3, alpha=0.05)
                 
         with torch.no_grad():
 
@@ -519,11 +530,45 @@ def accuracy(output, target, topk=(1,)):
     
 def defend(state_models):
     '''
-    TODO: NOT IMPLEMENTED YET!
-    '''
-    classifier, generator = state_models[0]['model'], state_models[1]['model']
-    print('WARNING: NOT IMPLEMENTED YET!')
+    Constructs an attack/defense simulation using
+    the currently loaded generator and classifier.
     
+    Keyword arguments:
+    > state_models (list of [dict, dict]) -- holds
+        state parameters for classifier and generator,
+        respectively.
+        
+    Returns: N/A
+    '''
+    # Constructs new defense state from generator/classifier states.
+    classifier, generator = state_models[0]['model'], state_models[1]['model']
+    defended_classifier = models.DAVAE(classifier, generator)
+    defended_state = dict(state_models[0]) # Copies over state from classifier
+    defended_state['model'] = defended_classifier
+    defended_state['val_dataloader'] = state_models[1]['val_dataloader'] # Use generator dataloader
+    
+    if train_utils.get_yes_or_no('Adversarial test?'):
+        if train_utils.get_yes_or_no('Whitebox attack?'):
+            for attack_name in constants.ATTACKS:
+                print('Whitebox attack. Using current model.')
+                print('\n--- COMMENCING ATTACK:', attack_name, '---')
+                validate(defended_state, save=False, adversarial=True, adversarial_attack=attack_name)
+                print('--- ENDING ATTACK ---')
+        else:
+            print('\nBlackbox attack. Please load an imitator model.')
+            imitator_state = load_model(param_factory(False))
+            setup_cuda(imitator_state) # Sends imitator network to GPU
+            for attack_name in constants.ATTACKS:
+                print('\n--- COMMENCING ATTACK:', attack_name, '---')
+                validate(defended_state, save=False, adversarial=True, adversarial_attack=attack_name, 
+                         whitebox=False, adversary_model=imitator_state['model'],
+                         adversary_criterion=imitator_state['criterion'])
+                print('--- ENDING ATTACK ---')
+        print()
+    else:
+        validate(defended_state, save=False, adversarial=False)
+        
+        
 
 def print_models():
     '''
@@ -592,35 +637,35 @@ def main():
 
     # Console-style program
     while True:
+        params = state_params[param_number]
         print('============== CS231n Project Console ==============')
         print('\nYou are currently in the', 
               bolded('classifier' if param_number == 0 else 'generator'), 'state.')
         print('Type `s` to swap states. Note that some commands are only available in one state.\n')
         user_input = input('What would you like to do? (type -h for help) -> ')
         if user_input in ['-t', '--train', 't', 'train']:
-            perform_training(state_params[param_number])
+            perform_training(params)
         elif user_input in ['-v', '--validate', 'v', 'validate']:
-            validate(state_params[param_number])
+            validate(params)
         elif user_input in ['-l', '--load', 'l', 'load']:
-            state_params[param_number] = load_model(state_params[param_number])
+            state_params[param_number] = load_model(params)
         elif user_input in ['-n', '--new', 'n', 'new']:
-            new_model(state_params[param_number])
+            new_model(params)
         elif user_input in ['-h', '--help', 'h', 'help'] or user_input.strip() == '':
-            print_help(state_params[param_number], param_number)
+            print_help(params, param_number)
         elif user_input in ['-p', '--print', 'p', 'print']:
-            print_state(state_params[param_number])
+            print_state(params)
         elif user_input in ['-a', '--adversarial', 'a', 'adversarial']:
             if not params['is_generator']:
-                attack_validate(state_params[param_number])
+                attack_validate(params)
             else:
                 print('Can\'t attack - model is not a classifier!')
-                print('(NOT IMPLEMENTED YET) - Use \'d\' to perform a defended attack.')
+                print('Use \'d\' to perform a defended attack.\n')
         elif user_input in ['-m', '--models', 'm', 'models']:
             print_models()
         elif user_input in ['-e', '--edit', 'e', 'edit']:
-            edit_state(state_params[param_number])
+            edit_state(params)
         elif user_input in ['-g', '--generate', 'g', 'generate']:
-            params = state_params[param_number]
             if params['is_generator']:
                 viz_utils.sample_VAE(params['model'], params['device'],
                                      params['cur_epoch'], 'models/' + params['run_name'])

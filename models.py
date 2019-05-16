@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.init as init
@@ -212,3 +213,25 @@ class VAE(nn.Module):
         mu, logvar = self.encode(x.view(-1, 784))
         z = self.reparameterize(mu, logvar)
         return x, self.decode(z), mu, logvar
+
+    
+class DAVAE(nn.Module):
+    '''
+    Defense Against Adversarial Attacks VAE.
+    Wrapper around a VAE + classifier.
+    '''
+    def __init__(self, classifier, generator):
+        super(DAVAE, self).__init__()
+        self.classifier = classifier
+        self.generator = generator
+        
+    def forward(self, x):
+        _, reconv_x, _, _ = self.generator(x)
+        reconv_x = self.normalize(reconv_x)
+        reconv_x = reconv_x.reshape(-1, 1, 28, 28) # Unflattening for conv net
+        return self.classifier(reconv_x)
+        
+    def normalize(self, data):
+        return (data - torch.mean(data, dim=0, keepdim=True)) / torch.std(data, dim=0, keepdim=True)
+        
+        

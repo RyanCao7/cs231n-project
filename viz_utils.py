@@ -1,5 +1,6 @@
 import os
 import torch
+import matplotlib.pyplot as plt
 from torchvision.utils import save_image
 
 
