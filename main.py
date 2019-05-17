@@ -518,7 +518,7 @@ def attack_validate(params):
 # TODO: Allow this to be altered
 def adjust_learning_rate(epoch, params):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = params['learning_rate'] * (0.33 ** (epoch // 5))
+    lr = params['learning_rate'] #params['learning_rate'] * (0.33 ** (epoch // 5)) TODO FIX ME
     for param_group in params['optimizer'].param_groups:
         param_group['lr'] = lr
 
