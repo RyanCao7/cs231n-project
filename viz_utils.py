@@ -18,7 +18,7 @@ def plot_accuracies(params):
     plt.legend(loc='lower right')
     plt.savefig('graphs/' + params['run_name'] + '/' + params['run_name'] + '_accuracies.png')
     plt.close()
- 
+
 
 def plot_losses(params):
     '''
@@ -37,15 +37,32 @@ def plot_losses(params):
 
 
 MAX_IMG = 8
-def compare_VAE(batch, recon_batch, batch_size, epoch, path):
+def compare_VAE(batch, generator, epoch, path):
+    '''
+    Saves parallely generated batch/reconstructed batch
+    images next to each other.
+    
+    Keyword arguments:
+    > batch (torch.tensor) -- original input data.
+    > generator (torch.nn.Module) -- current generator.
+    > epoch (int) -- number of COMPLETED training epochs.
+    > path (string) -- save path.
+    
+    Returns: N/A
+    '''
+    print('Generating comparison images from VAE...')
+    if not os.path.isdir(path):
+        os.makedirs(path)
     with torch.no_grad():
         n = min(batch.size(0), 8)
+        _, recon_batch, _, _ = generator(batch)
         comparison = torch.cat([batch[:n],
-                               recon_batch.view(batch_size, 1, 28, 28)[:n]])
+                               recon_batch.view(batch.size(0), 1, 28, 28)[:n]])
         save_image(comparison.cpu(),
                    path + '/reconstruction_' + str(epoch) + '.png', nrow=n)
+    print('Finished! Samples saved under ' + path + '/reconstruction_' + str(epoch) + '.png.')
 
-
+    
 def sample_VAE(vae_model, device, epoch, path):
     '''
     Returns randomly generated samples from vae_model.
@@ -58,6 +75,8 @@ def sample_VAE(vae_model, device, epoch, path):
     Returns: N/A
     '''
     print('Sampling from VAE...')
+    if not os.path.isdir(path):
+        os.makedirs(path)
     vae_model.eval()
     with torch.no_grad():
         sample = torch.randn(64, 20).to(device)

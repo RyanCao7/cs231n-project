@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 import matplotlib.pyplot as plt
 import os
 import constants
@@ -31,6 +32,17 @@ def save_checkpoint(params, epoch):
     #     shutil.copyfile(filename, 'model_best.pth.tar')
 
     
+def sample_from_dataset(params):
+    '''
+    Because DataLoader API doesn't allow us to easily/
+    cleanly sample randomly from it...
+    '''
+    random_target = int(np.random.random() * len(params['val_dataloader']))
+    for i, (data, target) in enumerate(params['val_dataloader']):
+        if i == random_target:
+            return data
+    
+
 def model_type(params):
     '''
     One-liner helper function for printing
@@ -51,7 +63,7 @@ def initialize_dirs():
         os.makedirs('models/generators/')
     if not os.path.isdir('graphs/'):
         os.makedirs('graphs/')
-    if not os.path.isdir('visuals/'): # TODO: Organize this better/actually save here!
+    if not os.path.isdir('visuals/'):
         os.makedirs('visuals/')
     
 

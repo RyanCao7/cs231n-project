@@ -11,7 +11,6 @@ import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torch.optim
-import torch.multiprocessing as mp
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
@@ -678,9 +677,11 @@ def main():
         elif user_input in ['-e', '--edit', 'e', 'edit']:
             edit_state(params)
         elif user_input in ['-g', '--generate', 'g', 'generate']:
-            if params['is_generator']:
+            if params['is_generator'] and params['model'] is not None:
                 viz_utils.sample_VAE(params['model'], params['device'],
-                                     params['cur_epoch'], 'models/generator/' + params['run_name'])
+                                     params['cur_epoch'], 'visuals/' + params['run_name'])
+                viz_utils.compare_VAE(train_utils.sample_from_dataset(params).to(params['device']),
+                                      params['model'], params['cur_epoch'], 'visuals/' + params['run_name'])
             else:
                 print('Can\'t sample - model is not generative!')
                 
