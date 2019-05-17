@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import os
 import constants
 import loss_functions
+from adversary import attack_batch
 
 
 # TODO: Make this save for best val accuracy epoch
@@ -37,11 +38,25 @@ def sample_from_dataset(params):
     Because DataLoader API doesn't allow us to easily/
     cleanly sample randomly from it...
     '''
-    random_target = int(np.random.random() * len(params['val_dataloader']))
+    random_idx = int(np.random.random() * len(params['val_dataloader']))
     for i, (data, target) in enumerate(params['val_dataloader']):
-        if i == random_target:
+        if i == random_idx:
             return data
-    
+
+
+def sample_attack_from_dataset(params, attack_name='FGSM', epsilon=0.3, alpha=0.05):
+    '''
+    Because DataLoader API doesn't allow us to eaily/
+    cleanly sample randomly from it...
+    '''
+    random_idx = int(np.random.random() * len(params['val_dataloader']))
+    for i, (data, target) in enumerate(params['val_dataloader']):
+        if i == random_idx:
+            data = data.to(params['device'])
+            return attack_batch(data, target, params['model'], params['criterion'], 
+                                attack_name=attack_name, device=params['device'], 
+                                epsilon=epsilon, alpha=alpha)
+
 
 def model_type(params):
     '''
