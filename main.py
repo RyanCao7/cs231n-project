@@ -680,7 +680,7 @@ def main():
         elif user_input in ['-g', '--generate', 'g', 'generate']:
             if params['is_generator']:
                 viz_utils.sample_VAE(params['model'], params['device'],
-                                     params['cur_epoch'], 'models/' + params['run_name'])
+                                     params['cur_epoch'], 'models/generator/' + params['run_name'])
             else:
                 print('Can\'t sample - model is not generative!')
                 
