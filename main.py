@@ -681,7 +681,12 @@ def main():
                 viz_utils.sample_VAE(params['model'], params['device'],
                                      params['cur_epoch'], 'visuals/' + params['run_name'])
                 viz_utils.compare_VAE(train_utils.sample_from_dataset(params).to(params['device']),
-                                      params['model'], params['cur_epoch'], 'visuals/' + params['run_name'])
+                                      params['model'], params['cur_epoch'], 
+                                      'visuals/' + params['run_name'])
+                if state_params[param_number]['model'] is not None:
+                    viz_utils.compare_VAE(train_utils.sample_attack_from_dataset(state_params[0]).to(params['device']),
+                                      params['model'], params['cur_epoch'], 
+                                      'visuals/' + params['run_name'] + '_FGSM_' + state_params[0]['run_name']) #TODO Make this a selectable attack
             else:
                 print('Can\'t sample - model is not generative!')
                 
