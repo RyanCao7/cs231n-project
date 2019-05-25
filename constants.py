@@ -10,14 +10,14 @@ CLASSIFIERS = [
 # All VAE implementations
 GENERATORS = [
     'VANILLA_VAE',
+    'DEFENSE_VAE',
 ]
 
 # Powers of 2.
 BATCH_SIZES = [1, 4, 8, 16, 32, 64, 128, 256]
 
 # Adversarial attack methods
-### CW NOT IMPLEMENTED YET ###
-ATTACKS = ['FGSM', 'RAND_FGSM'] # , 'CW']
+ATTACKS = ['FGSM', 'RAND_FGSM', 'CW']
 
 # torchvision.datasets.[dataset]
 DATASETS = ['MNIST', 'CIFAR-10', 'Fashion-MNIST']

@@ -215,6 +215,81 @@ class VAE(nn.Module):
         return x, self.decode(z), mu, logvar
 
     
+class Defense_VAE(nn.Module):
+    '''
+    An implementation of the Defense-VAE architecture presented in
+    "Defense-VAE: A Fast and Accurate Defense against Adversarial Attacks"
+    by Li and Ji.
+    '''
+
+    def __init__(self):
+        super().__init__()
+        
+        # Encoder parameters
+        self.conv1 = nn.Conv2d(1, 64, 5, padding=2, bias=True)
+        self.bn1 = nn.BatchNorm2d(64)
+        
+        self.conv2 = nn.Conv2d(64, 64, 4, stride=2, padding=3, bias=True)
+        self.bn2 = nn.BatchNorm2d(64)
+
+        self.conv3 = nn.Conv2d(64, 128, 4, stride=2, padding=1, bias=True)
+        self.bn3 = nn.BatchNorm2d(128)
+
+        self.conv4 = nn.Conv2d(128, 256, 4, stride=2, padding=1, bias=True)
+        self.bn4 = nn.BatchNorm2d(256)
+
+        self.fc11 = nn.Linear(4096, 128, bias=True)
+        self.fc12 = nn.Linear(4096, 128, bias=True)
+
+        # Decoder parameters
+        self.fc2 = nn.Linear(128, 4096, bias=True)
+
+        self.tconv1 = nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1, bias=True)
+        self.tbn1 = nn.BatchNorm2d(128)
+
+        self.tconv2 = nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1, bias=True)
+        self.tbn2 = nn.BatchNorm2d(64)
+
+        self.tconv3 = nn.ConvTranspose2d(64, 64, 4, stride=2, padding=3, bias=True)
+        self.tbn3 = nn.BatchNorm2d(64)
+
+        # I removed the BN + ReLU of the final layer to use sigmoid instead.
+        self.tconv4 = nn.ConvTranspose2d(64, 1, 5, padding=2, bias=True)
+
+    def encode(self, x):
+        h1 = F.relu(self.bn1(self.conv1(x)))
+        h2 = F.relu(self.bn2(self.conv2(h1)))
+        h3 = F.relu(self.bn3(self.conv3(h2)))
+        h4 = F.relu(self.bn4(self.conv4(h3)))
+
+        # Flatten
+        N = h4.shape[0]
+        h4 = h4.view(N, -1)
+
+        return self.fc11(h4), self.fc12(h4)
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5*logvar)
+        eps = torch.randn_like(std)
+        return mu + eps*std
+
+    def decode(self, z):
+        h1 = F.relu(self.fc2(z))
+        h1 = h1.view(-1, 256, 4, 4)
+
+        h2 = F.relu(self.tbn1(self.tconv1(h1)))
+        h3 = F.relu(self.tbn2(self.tconv2(h2)))
+        h4 = F.relu(self.tbn3(self.tconv3(h3)))
+
+        out = torch.sigmoid(self.tconv4(h4)))
+        return out
+
+    def forward(self, x):
+        mu, logvar = self.encode(x)
+        z = self.reparameterize(mu, logvar)
+        return x, self.decode(z), mu, logvar
+
+
 class DAVAE(nn.Module):
     '''
     Defense Against Adversarial Attacks VAE.
@@ -227,7 +302,7 @@ class DAVAE(nn.Module):
         
     def forward(self, x):
         _, reconv_x, _, _ = self.generator(x)
-        reconv_x = self.normalize(reconv_x)
+#        reconv_x = self.normalize(reconv_x) # We shouldn't normalize unless we have normalized images
         reconv_x = reconv_x.reshape(-1, 1, 28, 28) # Unflattening for conv net
         return self.classifier(reconv_x)
         

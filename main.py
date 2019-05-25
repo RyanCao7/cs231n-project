@@ -66,6 +66,8 @@ def new_model(params):
         params['model'] = models.Classifier_E()
     elif model_string == 'VANILLA_VAE':
         params['model'] = models.VAE()
+    elif model_string == 'DEFENSE_VAE':
+        params['model'] = models.Defense_VAE()
     else:
         raise Exception(model_string, 'does not exist as a model (yet)!')
         
