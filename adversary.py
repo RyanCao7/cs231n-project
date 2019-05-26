@@ -77,7 +77,7 @@ def fgsm_attack(batch, epsilon, batch_grad, min, max):
     sign_batch_grad = batch_grad.sign()
     perturbed_batch = batch + epsilon * sign_batch_grad
     perturbed_batch = torch.clamp(perturbed_batch, min, max)
-    return perturbed_batch
+    return perturbed_batch.detach()
 
 def get_batch_grad(batch, target, model, loss_fcn, device):
     """
@@ -154,7 +154,7 @@ def cw_attack(batch, target, model, device, lr, num_iter, c,
     with torch.no_grad():
         cw_batch = batch + perturbation
 
-    return cw_batch
+    return cw_batch.detach()
 
 def cw_objective(model, batch, perturbation, target):
     """

@@ -301,6 +301,8 @@ def perform_training(params):
         # train for one epoch
         train_one_epoch(epoch, params)
 
+        # TO-DO: Update function to keep track of additional statistics for adv. training 
+
         # evaluate on validation set
         acc1 = validate(params, save=True, adversarial=False)
 
@@ -358,10 +360,25 @@ def train_one_epoch(epoch, params):
         data = data.to(params['device'])
         target = target.to(params['device'])
 
+        # Augment batch if using adversarial training
+        if params['adversarial_train']:
+            perturbed_data = adversary.attack_batch(data, target, params['model'],
+                                                    params['criterion'], attack_name='FGSM',
+                                                    device=params['device'])            
+            data = torch.cat([data, perturbed_data], dim=0)
+            target = torch.cat([target, target.clone()], dim=0)
+            params['model'].train()
+
+
         # Compute output
         output = params['model'](data)
         
         # Evaluate loss
+        if params['is_generator'] and params['adversarial_train']:
+            x, recon_x, mu, logvar = output
+            N = x.shape[0]
+            x = torch.cat([x[0:N/2, :, :, :], x[0:N/2, :, :, :].clone()], dim=0)
+            output = x, recon_x, mu, logvar            
         loss = params['criterion'](output, target)
         losses.update(loss.item(), data.size(0))
 
