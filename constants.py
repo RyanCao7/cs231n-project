@@ -51,6 +51,7 @@ SETUP_STATE_VARS = [
     'seed',
     'optimizer',
     'criterion',
+    'adversarial_train'
 ]
 
 # torch.nn.[loss]

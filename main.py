@@ -128,6 +128,8 @@ def load_model(params):
     # Backwards compatibility
     if 'is_generator' not in loaded:
         loaded['is_generator'] = False
+    if 'adversarial_train' not in loaded:
+        loaded['adversarial_train'] = False
         
     return loaded
 
@@ -170,6 +172,9 @@ def param_factory(is_generator=False):
     
     # Whether our model is a generator-type model
     params['is_generator'] = is_generator
+
+    # Whether we train our model with adversarial training
+    params['adversarial_train'] = False
 
     # Default - checkpoint every 10 epochs
     params['save_every'] = 10
