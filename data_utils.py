@@ -17,7 +17,7 @@ def get_dataloader(dataset_name='MNIST', val_split=0.2, batch_sz=4, num_threads=
     > num_threads (int) -- Number of threads with which to load data.
     > shuffle_val (bool) -- Whether to shuffle validation set indices.
 
-    Return value: (train_dataloader, test_dataloader)
+    Return value: (train_dataloader, val_dataloader, test_dataloader)
     > train_dataloader -- a torch.utils.data.DataLoader wrapper around
         the specified dataset's training set.
     > val_dataloader -- a torch.utils.data.DataLoader wrapper around

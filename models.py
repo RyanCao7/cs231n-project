@@ -281,7 +281,7 @@ class Defense_VAE(nn.Module):
         h3 = F.relu(self.tbn2(self.tconv2(h2)))
         h4 = F.relu(self.tbn3(self.tconv3(h3)))
 
-        out = torch.sigmoid(self.tconv4(h4)))
+        out = torch.sigmoid(self.tconv4(h4))
         return out
 
     def forward(self, x):

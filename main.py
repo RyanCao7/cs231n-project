@@ -58,7 +58,7 @@ def new_model(params):
         params['model'] = models.Classifier_A()
     elif model_string == 'Classifier_B':
         params['model'] = models.Classifier_B()
-    if model_string == 'Classifier_C':
+    elif model_string == 'Classifier_C':
         params['model'] = models.Classifier_C()
     elif model_string == 'Classifier_D':
         params['model'] = models.Classifier_D()
@@ -81,7 +81,7 @@ def new_model(params):
 
     # Grabs dataloaders. TODO: Prompt for val split/randomize val indices
     params['train_dataloader'], params['val_dataloader'], params['test_dataloader'] = get_dataloader(
-        dataset_name=params['dataset'], 
+        dataset_name=params['dataset'],
         batch_sz=params['batch_size'],
         num_threads=params['num_threads'])
 
@@ -109,14 +109,12 @@ def load_model(params):
 
     # Grabs model choice from user
     print('\n --- All saved models ---')
-#     model_folders = [model_folder[model_folder.rfind('/') + 1:] for model_folder in model_folders]
     user_model_choice = train_utils.input_from_list(model_folders, 'input')
     print('Chosen model:', user_model_choice[user_model_choice.rfind('/') + 1:])
 
     # Grabs checkpoint file from user
     print('\n --- All saved checkpoints ---')
     saved_checkpoint_files = glob.glob(user_model_choice + '/*')
-#     saved_checkpoint_files = [checkpoint[checkpoint.rfind('/') + 1:] for checkpoint in saved_checkpoint_files]
     user_checkpoint_choice = train_utils.input_from_list(saved_checkpoint_files, 'checkpoint')
     print('Chosen checkpoint:', user_checkpoint_choice[user_checkpoint_choice.rfind('/') + 1:], '\n')
 
@@ -265,6 +263,7 @@ def print_state(params):
     print('Total epochs:', params['total_epochs'])
     print('Batch size:', params['batch_size'])
     if params['train_dataloader'] is not None:
+        print(params['train_dataloader'].dataset)
         print('Total training set size:', params['batch_size'] * len(params['train_dataloader']))
         print('Total val set size:', params['batch_size'] * len(params['val_dataloader']))
         print('Total test set size:', params['batch_size'] * len(params['test_dataloader']))
@@ -286,7 +285,7 @@ def perform_training(params):
     if params['model'] is None:
         print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
         return
-
+    
     setup_cuda(params)
     print('\n--- COMMENCE TRAINING ---\n')
     
@@ -377,7 +376,7 @@ def train_one_epoch(epoch, params):
         if params['is_generator'] and params['adversarial_train']:
             x, recon_x, mu, logvar = output
             N = x.shape[0]
-            x = torch.cat([x[0:N/2, :, :, :], x[0:N/2, :, :, :].clone()], dim=0)
+            x = torch.cat([x[0 : N / 2, :, :, :], x[0 : N / 2, :, :, :].clone()], dim=0)
             output = x, recon_x, mu, logvar            
         loss = params['criterion'](output, target)
         losses.update(loss.item(), data.size(0))
@@ -520,8 +519,8 @@ def attack_validate(params):
     Returns: N/A
     '''
     if train_utils.get_yes_or_no('Whitebox attack?'):
+        print('Performing whitebox attack using current classifier (' + params['run_name'] + ').')
         for attack_name in constants.ATTACKS:
-            print('Whitebox attack. Using current classifier (' + params['run_name'] + ').')
             print('\n--- COMMENCING ATTACK:', attack_name, '---')
             validate(params, save=False, adversarial=True, adversarial_attack=attack_name)
             print('--- ENDING ATTACK ---')
@@ -529,6 +528,7 @@ def attack_validate(params):
         print('\nBlackbox attack. Please load an imitator model.')
         imitator_state = load_model(param_factory(False))
         setup_cuda(imitator_state) # Sends imitator network to GPU
+        print('Performing blackbox attack on ' + params['run_name'] + ' using ' + imitator_state['run_name'] + ' as imitator.')
         for attack_name in constants.ATTACKS:
             print('\n--- COMMENCING ATTACK:', attack_name, '---')
             validate(params, save=False, adversarial=True, adversarial_attack=attack_name, 

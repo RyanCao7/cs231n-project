@@ -17,7 +17,8 @@ GENERATORS = [
 BATCH_SIZES = [1, 4, 8, 16, 32, 64, 128, 256]
 
 # Adversarial attack methods
-ATTACKS = ['FGSM', 'RAND_FGSM', 'CW']
+# ATTACKS = ['FGSM', 'RAND_FGSM', 'CW']
+ATTACKS = ['CW'] # DEBUGGING ONLY! TODO: REMOVE
 
 # torchvision.datasets.[dataset]
 DATASETS = ['MNIST', 'CIFAR-10', 'Fashion-MNIST']
@@ -34,7 +35,6 @@ EDITABLE_STATE_VARS = [
     'print_frequency',
     'save_every',
     'evaluate',
-    'total_epochs',
 ]
 
 # For state setup
