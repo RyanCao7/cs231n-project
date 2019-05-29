@@ -53,7 +53,7 @@ def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM',
                            min_pix, max_pix)
     elif attack_name == 'CW':
 #         return cw_attack(batch, target, model, device, lr, num_iter, c, min_pix, max_pix)
-        return reformulated_cw_attack(batch, target, model, device, lr, num_iter, c, min_pix, max_pix)
+        return reformulated_cw_attack(batch, target, model, device, lr, num_iter, c)
     else:
         raise Exception('Error: attack_name must be one of {\'FGSM\', \'RAND_FGSM\', '
                         '\'CW\'}.')
@@ -169,8 +169,7 @@ def w_to_delta(w, batch):
     return 0.5 * (torch.tanh(w) + 1) - batch
 
 
-def reformulated_cw_attack(batch, target, model, device, lr, num_iter, c,
-              min_pix, max_pix):
+def reformulated_cw_attack(batch, target, model, device, lr, num_iter, c):
     '''
     Reformulated version of cw attack without clipping.
     Optimizes w rather than delta directly - see page 7
@@ -194,7 +193,7 @@ def reformulated_cw_attack(batch, target, model, device, lr, num_iter, c,
 
         # Compute cw minimization objective (L2)
         perturbation_term = torch.sqrt(torch.sum(delta ** 2))
-        objective = perturbation_term + cw_objective(model, batch, delta, target)
+        objective = perturbation_term + c * cw_objective(model, batch, delta, target)
         
         # Backpropagate
         objective.backward()

@@ -114,7 +114,7 @@ def load_model(params):
 
     # Grabs checkpoint file from user
     print('\n --- All saved checkpoints ---')
-    saved_checkpoint_files = glob.glob(user_model_choice + '/*')
+    saved_checkpoint_files = glob.glob(user_model_choice + '/*.pth.tar')
     user_checkpoint_choice = train_utils.input_from_list(saved_checkpoint_files, 'checkpoint')
     print('Chosen checkpoint:', user_checkpoint_choice[user_checkpoint_choice.rfind('/') + 1:], '\n')
 
@@ -128,6 +128,8 @@ def load_model(params):
         loaded['is_generator'] = False
     if 'adversarial_train' not in loaded:
         loaded['adversarial_train'] = False
+    if 'best_val_acc' not in loaded:
+        loaded['best_val_acc'] = 0.0
         
     return loaded
 
@@ -286,7 +288,11 @@ def perform_training(params):
         print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
         return
     
+    # Delete downstream checkpoints (i.e. those with greater epoch numbers)
+    # for consistency in saved checkpoints
+    if not train_utils.delete_future_checkpoints(params): return
     setup_cuda(params)
+    
     print('\n--- COMMENCE TRAINING ---\n')
     
     # Training/val loop
@@ -335,17 +341,16 @@ def train_one_epoch(epoch, params):
     Returns: N/A
     '''
     # Saves statistics about epoch (TODO -- pipe to file?)
-    batch_time = train_utils.AverageMeter('Time', ':5.3f')
-    data_time = train_utils.AverageMeter('Data', ':5.3f')
-    losses = train_utils.AverageMeter('Loss', ':.4e')
+    batch_time = train_utils.AverageMeter('Time', ':.3f')
+    data_time = train_utils.AverageMeter('Data', ':.3f')
+    losses = train_utils.AverageMeter('Loss', ':.3e')
     if params['is_generator']:
         progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, losses,
                                              prefix='Epoch: [{}]'.format(epoch))
     else:
-        top1 = train_utils.AverageMeter('Acc@1', ':5.2f')
-        top5 = train_utils.AverageMeter('Acc@5', ':5.2f')
+        top1 = train_utils.AverageMeter('Acc@1', ':4.2f')
         progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, losses,
-                                             top1, top5, prefix='Epoch: [{}]'.format(epoch))
+                                             top1, prefix='Epoch: [{}]'.format(epoch))
 
     # Switch to train mode. Important for dropout and batchnorm.
     params['model'].train()
@@ -383,9 +388,8 @@ def train_one_epoch(epoch, params):
 
         # Measure accuracy and record loss
         if not params['is_generator']:
-            acc1, acc5 = accuracy(output, target, topk=(1, 5))
+            acc1 = accuracy(output, target)[0]
             top1.update(acc1[0], data.size(0))
-            top5.update(acc5[0], data.size(0))
 
         # Compute gradient and do SGD step
         params['optimizer'].zero_grad()
@@ -407,6 +411,8 @@ def train_one_epoch(epoch, params):
     params['train_losses'].append(losses.get_avg())
     if not params['is_generator']:
         params['train_accuracies'].append(top1.get_avg())
+        
+    return acc1
     
 
 def validate(params, save=False, adversarial=False, adversarial_attack=None, 
@@ -444,9 +450,8 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
                                              prefix='Test: ')
     else:
         top1 = train_utils.AverageMeter('Acc@1', ':5.2f')
-        top5 = train_utils.AverageMeter('Acc@5', ':5.2f')
         progress = train_utils.ProgressMeter(len(params['val_dataloader']), batch_time, losses,
-                                             top1, top5, prefix='Test: ')
+                                             top1, prefix='Test: ')
 
     # Switch model to evaluate mode; push to GPU
     params['model'].eval()
@@ -480,9 +485,8 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
             
             # measure accuracy and record loss
             if not params['is_generator']:
-                acc1, acc5 = accuracy(output, target, topk=(1, 5))
+                acc1 = accuracy(output, target)[0]
                 top1.update(acc1[0], data.size(0))
-                top5.update(acc5[0], data.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)
@@ -493,10 +497,8 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
     
     # Print final accuracy/loss
     progress.print(len(params['val_dataloader']))
-    
     if not params['is_generator']:
-        print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
-          .format(top1=top1, top5=top5))
+        print(' * Acc@1 {top1.avg:.3f}'.format(top1=top1))
 
     # Storing validation losses/accuracies
     if save:
@@ -506,6 +508,8 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
 
     if not adversarial:
         print('--- END VALIDATION PASS ---\n')
+    
+    return acc1
 
 
 def attack_validate(params):

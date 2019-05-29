@@ -3,6 +3,8 @@ import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import subprocess
+import glob
 import constants
 import loss_functions
 from adversary import attack_batch
@@ -271,6 +273,34 @@ def input_from_list(the_list, item, default=None):
     while input_idx not in range(len(the_list)):
         input_idx = int_input('Try again. Please type the index of the ' + item + ' you wish to choose (enter for default) -> ') - 1
     return the_list[input_idx]
+
+
+def delete_future_checkpoints(params):
+    '''
+    Deletes all old future epoch training checkpoints for consistency
+    (i.e. all saved weights are continuums of the same training process).
+    
+    Keyword Arguments: params (dict)
+    > params -- current parameter state dictionary
+    '''
+    path = 'models/' + model_type(params) + '/'
+    print('Warning: training will delete all checkpoints past the current (' +
+                         str(params['cur_epoch'] + 1) + ') epoch:')
+    to_be_deleted = []
+    for checkpoint in glob.glob(path + params['run_name'] + '/*.pth.tar'):
+        run_num = int(checkpoint[checkpoint.rfind('_') + 1 : checkpoint.find('.pth.tar')])
+        if run_num > params['cur_epoch'] + 1:
+            print('To be deleted:', checkpoint)
+            to_be_deleted.append(checkpoint)
+    if not get_yes_or_no('Continue?'):
+        return False
+    
+    print('Deleting all checkpoints past ' + str(params['cur_epoch'] + 1) + ' epoch...')
+    for checkpoint in to_be_deleted:
+        print('deleting', checkpoint + '...')
+        status = subprocess.call(['rm', checkpoint])
+        assert(status == 0)
+    return True
 
 
 # Taken from PyTorch/examples
