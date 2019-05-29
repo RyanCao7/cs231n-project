@@ -5,9 +5,10 @@ from datetime import datetime
 from torchvision.utils import save_image
 
 
+# TODO: Massive plot refactoring! Need a single general plotting function!
 def plot_accuracies(params):
     '''
-    Simple accuracy over epoch plot.
+    Simple accuracy over epoch plot. TODO: MAKE THIS PLOT PER N BATCHES!
     '''
     if not os.path.isdir('graphs/' + params['run_name'] + '/'):
         os.makedirs('graphs/' + params['run_name'] + '/')
@@ -17,13 +18,14 @@ def plot_accuracies(params):
     plt.plot(params['val_accuracies'], '-o', label='Validation Accuracy')
     plt.xlabel('Epoch')
     plt.legend(loc='lower right')
-    plt.savefig('graphs/' + params['run_name'] + '/' + params['run_name'] + '_accuracies.png')
+    extension = '_accuracies.png'
+    plt.savefig('graphs/' + params['run_name'] + '/' + params['run_name'] + extension)
     plt.close()
 
 
 def plot_losses(params):
     '''
-    Simple loss over epoch plot.
+    Simple loss over epoch plot. TODO: MAKE THIS PLOT PER N BATCHES!
     '''
     if not os.path.isdir('graphs/' + params['run_name'] + '/'):
         os.makedirs('graphs/' + params['run_name'] + '/')

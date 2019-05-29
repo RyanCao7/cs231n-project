@@ -34,7 +34,7 @@ import adversary
 import viz_utils
 
 
-def new_model(params):
+def new_model(is_generator):
     '''
     Creates a new model instance and initializes the respective fields
     in params.
@@ -44,13 +44,12 @@ def new_model(params):
 
     Returns: N/A
     '''
-
-    print('You are initializing a new', bolded(model_type(params)), '.')
-    model_list = constants.GENERATORS if params['is_generator'] else constants.CLASSIFIERS
+    params = param_factory(is_generator=is_generator)
+    print('You are initializing a new', bolded('generator') if is_generator else bolded('classifier'), '.')
+    model_list = constants.GENERATORS if is_generator else constants.CLASSIFIERS
     
     # Name
     params['run_name'] = input('Please type the current model run name -> ')
-
     # Architecture. Slightly hacky - allows constants.py to enforce 
     # which models are generators vs. classifiers.
     model_string = train_utils.input_from_list(model_list, 'model')
@@ -73,7 +72,7 @@ def new_model(params):
         
     # Kaiming initialization for weights
     models.initialize_model(params['model'])
-
+    
     # Setup other state variables
     for state_var in constants.SETUP_STATE_VARS:
         train_utils.store_user_choice(params, state_var)
@@ -89,7 +88,8 @@ def new_model(params):
     if not os.path.isdir('models/' + model_type(params) + '/' + params['run_name'] + '/'):
         os.makedirs('models/' + model_type(params) + '/' + params['run_name'] + '/')
     train_utils.save_checkpoint(params, 0)
-
+        
+    return params
 
 def load_model(params):
     '''
@@ -130,6 +130,12 @@ def load_model(params):
         loaded['adversarial_train'] = False
     if 'best_val_acc' not in loaded:
         loaded['best_val_acc'] = 0.0
+    if 'alpha' not in loaded:
+        loaded['alpha'] = 0.5
+    if 'best_ad_val_acc' not in loaded:
+        loaded['best_ad_val_acc'] = 0.0
+    if 'ad_val_accs' not in loaded:
+        loaded['ad_val_accs'] = [0.] * loaded['cur_epoch']
         
     return loaded
 
@@ -168,6 +174,7 @@ def param_factory(is_generator=False):
     params['weight_decay'] = 1e-4
     params['print_frequency'] = 10
     params['best_val_acc'] = 0.
+    params['best_ad_val_acc'] = 0.
     params['num_threads'] = 4
     
     # Whether our model is a generator-type model
@@ -175,6 +182,9 @@ def param_factory(is_generator=False):
 
     # Whether we train our model with adversarial training
     params['adversarial_train'] = False
+    
+    # Hyperparameter for weighting of adversarial batch vs. vanilla batch
+    params['alpha'] = 0.5
 
     # Default - checkpoint every 10 epochs
     params['save_every'] = 10
@@ -271,6 +281,8 @@ def print_state(params):
         print('Total test set size:', params['batch_size'] * len(params['test_dataloader']))
     print('Print every', params['print_frequency'], 'iterations.')
     print('Save every', params['save_every'], 'epochs.')
+    print('Trained adversarially?', params['adversarial_train'])
+    print('Alpha?', params['alpha'])
     print()
     
 
@@ -303,16 +315,19 @@ def perform_training(params):
         # LR Decay - currently a stepwise decay
         adjust_learning_rate(epoch, params)
 
-        # train for one epoch
+        # Train for one epoch
         train_one_epoch(epoch, params)
 
-        # TO-DO: Update function to keep track of additional statistics for adv. training 
-
-        # evaluate on validation set
+        # Evaluate on validation set
         acc1 = validate(params, save=True, adversarial=False)
+        if params['adversarial_train']:
+            # TODO: MAKE VALIDATE ACTUALLY SAVE PROPERLY FOR ADVERSARIAL VALIDATION
+            ad_acc1 = validate(params, save=False, adversarial=True, adversarial_attack='FGSM', 
+                                whitebox=True)
 
         # Update best val accuracy
         if not params['is_generator']:
+            params['best_ad_val_acc'] = max(ad_acc1, params['best_ad_val_acc'])
             params['best_val_acc'] = max(acc1, params['best_val_acc'])
 
         # Save checkpoint every 'save_every' epochs.
@@ -329,7 +344,9 @@ def perform_training(params):
     train_utils.save_checkpoint(params, params['total_epochs'])
     print('\n--- END TRAINING ---\n')
 
-    
+
+# TODO: FACTOR OUT GENERAL TRAINING COMPONENT TO BETTER INCORPORATE
+# ADVERSARIAL TRAINING
 def train_one_epoch(epoch, params):
     '''
     Trains model given in params['model'] for a single epoch.
@@ -364,29 +381,35 @@ def train_one_epoch(epoch, params):
         data = data.to(params['device'])
         target = target.to(params['device'])
 
-        # Augment batch if using adversarial training
+        # Generate and separately perform forward pass on adversarial examples
         if params['adversarial_train']:
+            params['model'].eval()
             perturbed_data = adversary.attack_batch(data, target, params['model'],
                                                     params['criterion'], attack_name='FGSM',
-                                                    device=params['device'])            
-            data = torch.cat([data, perturbed_data], dim=0)
-            target = torch.cat([target, target.clone()], dim=0)
+                                                    device=params['device'])
+            perturbed_target = target.clone()
             params['model'].train()
-
+            perturbed_output = params['model'](perturbed_data)
 
         # Compute output
         output = params['model'](data)
         
-        # Evaluate loss
+        # TODO: Not sure what this is doing...?
         if params['is_generator'] and params['adversarial_train']:
             x, recon_x, mu, logvar = output
             N = x.shape[0]
             x = torch.cat([x[0 : N / 2, :, :, :], x[0 : N / 2, :, :, :].clone()], dim=0)
-            output = x, recon_x, mu, logvar            
-        loss = params['criterion'](output, target)
-        losses.update(loss.item(), data.size(0))
+            output = x, recon_x, mu, logvar
+            
+        # Adversarial train uses slightly different criterion
+        if params['adversarial_train']:
+            loss = params['alpha'] * params['criterion'](output, target) + \
+                    (1 - params['alpha']) * params['criterion'](perturbed_output, perturbed_target)
+        else:
+            loss = params['criterion'](output, target)
 
         # Measure accuracy and record loss
+        losses.update(loss.item(), data.size(0))
         if not params['is_generator']:
             acc1 = accuracy(output, target)[0]
             top1.update(acc1[0], data.size(0))
@@ -396,7 +419,7 @@ def train_one_epoch(epoch, params):
         loss.backward()
         params['optimizer'].step()
 
-        # measure elapsed time
+        # Measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
 
@@ -441,8 +464,8 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
         return
     
     # Sets up training statistics to be logged to console (and possibly file -- TODO -- ?) output.
-    if not adversarial:
-        print('\n--- BEGIN VALIDATION PASS ---')
+    extension = 'adversarial' if adversarial else 'non-adversarial'
+    print('\n--- BEGIN (' + extension + ') VALIDATION PASS ---')
     batch_time = train_utils.AverageMeter('Time', ':5.3f')
     losses = train_utils.AverageMeter('Loss', ':.4e')
     if params['is_generator']:
@@ -522,6 +545,10 @@ def attack_validate(params):
     
     Returns: N/A
     '''
+    if params['model'] is None:
+        print('No model loaded! Type -n to create a new model, or -l to load an existing one from file.\n')
+        return
+    
     if train_utils.get_yes_or_no('Whitebox attack?'):
         print('Performing whitebox attack using current classifier (' + params['run_name'] + ').')
         for attack_name in constants.ATTACKS:
@@ -689,7 +716,7 @@ def main():
         elif user_input in ['-l', '--load', 'l', 'load']:
             state_params[param_number] = load_model(params)
         elif user_input in ['-n', '--new', 'n', 'new']:
-            new_model(params)
+            state_params[param_number] = new_model(param_number == 1)
         elif user_input in ['-h', '--help', 'h', 'help'] or user_input.strip() == '':
             print_help(params, param_number)
         elif user_input in ['-p', '--print', 'p', 'print']:

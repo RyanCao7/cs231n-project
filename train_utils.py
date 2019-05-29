@@ -141,7 +141,9 @@ def store_user_choice(params, keyword):
         params['seed'] = input_from_range(-1e99, 1e99, 'random seed')
     elif keyword == 'adversarial_train':
         params['adversarial_train'] = get_yes_or_no('Train with adversarial training?')
-
+    elif keyword == 'alpha':
+        params['alpha'] = input_float_range(0, 1, 'Desired alpha value (for adversarial training loss weighting)')
+        
     # Optimizer choice
     elif keyword == 'optimizer':
         optimizer_choice = input_from_list(constants.OPTIMIZERS, 'optimizer')

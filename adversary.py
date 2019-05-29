@@ -1,4 +1,5 @@
 import torch
+import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -53,7 +54,7 @@ def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM',
                            min_pix, max_pix)
     elif attack_name == 'CW':
 #         return cw_attack(batch, target, model, device, lr, num_iter, c, min_pix, max_pix)
-        return reformulated_cw_attack(batch, target, model, device, lr, num_iter, c)
+        return reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c)
     else:
         raise Exception('Error: attack_name must be one of {\'FGSM\', \'RAND_FGSM\', '
                         '\'CW\'}.')
@@ -133,7 +134,6 @@ def cw_attack(batch, target, model, device, lr, num_iter, c,
     Return value: cw_batch
     > cw_batch (tensor) -- The adversarial batch generated.
     '''
-    torch.autograd.set_detect_anomaly(True) # DEBUG ONLY: TODO - REMOVE
     # Initalize perturbation randomly
     perturbation = torch.randn_like(batch, requires_grad=True)
 
@@ -201,6 +201,39 @@ def reformulated_cw_attack(batch, target, model, device, lr, num_iter, c):
         # Manually perform gradient descent
         with torch.no_grad():
             w -= lr * temp_w.grad
+            
+    return (batch + w_to_delta(w, batch)).detach()
+    
+    
+def reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c):
+    '''
+    Reformulated version of cw attack using
+    Adam optimizer rather than SGD.
+    '''
+    # TODO: Perhaps this will be slightly more efficient...?
+    batch.requires_grad = False
+    
+    # ~N(0, 1) - Gaussian with \mu = 0; \sigma = 1.
+    w = torch.randn_like(batch, requires_grad=True)
+    adam = optim.Adam([w], lr=lr)
+    
+    for i in range(num_iter):
+        
+        # Get raw logits from model
+        delta = w_to_delta(w, batch)
+        logits = model(batch + delta)
+
+        # Compute cw minimization objective (L2)
+        perturbation_term = torch.sqrt(torch.sum(delta ** 2))
+        objective = perturbation_term + c * cw_objective(model, batch, delta, target)
+        
+        # Backpropagate
+        if w.grad is not None:
+            w.grad.data.zero_()
+        objective.backward()
+        
+        # Backpropagate
+        adam.step()
             
     return (batch + w_to_delta(w, batch)).detach()
     
