@@ -5,38 +5,49 @@ from datetime import datetime
 from torchvision.utils import save_image
 
 
-# TODO: Massive plot refactoring! Need a single general plotting function!
+def general_plot(plot_points, plot_names, run_name, title, xlabel,
+                 ylabel, plt_symbol='-o', figsize=(10, 8), scale=1):
+    '''
+    Generic plotting function to be used for acc/loss.
+    
+    Keyword arguments:
+    > plot_points (list[list]) -- list of point lists to be plotted.
+    > plot_names (list[string]) -- parallel list of plot names.
+    > run_name (string) -- current run to save under.
+    > title (string) -- plot title (also saved extension).
+    > xlabel (string) -- plot x-axis label
+    > ylabel (string) -- plot y-axis label
+    '''
+    if not os.path.isdir('graphs/' + run_name + '/'):
+        os.makedirs('graphs/' + run_name + '/')
+    plt.figure(figsize=figsize)
+    plt.title(title)
+    for idx, plot in enumerate(plot_points):
+        x_labels = list(i * scale for i in range(len(plot)))
+        plt.plot(x_labels, plot, plt_symbol, label=plot_names[idx])
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.legend(loc='lower right')
+    plt.savefig('graphs/' + run_name + '/' + run_name + '_' + title.lower() + '.png')
+    plt.close()
+
+    
 def plot_accuracies(params):
     '''
-    Simple accuracy over epoch plot. TODO: MAKE THIS PLOT PER N BATCHES!
+    Simple accuracy over training iterations plot.
     '''
-    if not os.path.isdir('graphs/' + params['run_name'] + '/'):
-        os.makedirs('graphs/' + params['run_name'] + '/')
-    plt.figure(figsize=(10, 8))
-    plt.title('Accuracies')
-    plt.plot(params['train_accuracies'], '-o', label='Training Accuracy')
-    plt.plot(params['val_accuracies'], '-o', label='Validation Accuracy')
-    plt.xlabel('Epoch')
-    plt.legend(loc='lower right')
-    extension = '_accuracies.png'
-    plt.savefig('graphs/' + params['run_name'] + '/' + params['run_name'] + extension)
-    plt.close()
+    general_plot([params['train_accuracies'], params['val_accuracies']],
+                 ['Training Accuracy', 'Validation Accuracy'], params['run_name'],
+                 'Accuracies', 'Iterations', 'Accuracy', scale=params['print_frequency'])
 
 
 def plot_losses(params):
     '''
-    Simple loss over epoch plot. TODO: MAKE THIS PLOT PER N BATCHES!
+    Simple loss over training iterations plot.
     '''
-    if not os.path.isdir('graphs/' + params['run_name'] + '/'):
-        os.makedirs('graphs/' + params['run_name'] + '/')
-    plt.figure(figsize=(10, 8))
-    plt.title('Losses')
-    plt.plot(params['train_losses'], '-o', label='Training Loss')
-    plt.plot(params['val_losses'], '-o', label='Validation Loss')
-    plt.xlabel('Epoch')
-    plt.legend(loc='lower right')
-    plt.savefig('graphs/' + params['run_name'] + '/' + params['run_name'] + '_losses.png')
-    plt.close()
+    general_plot([params['train_losses'], params['val_losses']],
+                 ['Training Loss', 'Validation Loss'], params['run_name'],
+                 'Losses', 'Iterations', 'Loss', scale=params['print_frequency'])
 
 
 MAX_IMG = 8

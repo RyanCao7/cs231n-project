@@ -3,10 +3,19 @@ import torch
 import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
+import data_utils
+import constants
 
 
-# TODO: Implement Kaiming initialization for model weights here!
 def initialize_model(model):
+    '''
+    Performs Kaiming weight initialization for a
+    given model.
+    
+    Keyword arguments:
+    > model (torch.nn.Module) -- the model whose 
+        weights are to be initialized.
+    '''
     for name, param in model.named_parameters():
         if name.endswith('.weight'):
             init.kaiming_normal_(param, mode='fan_in', nonlinearity='relu')
@@ -14,6 +23,52 @@ def initialize_model(model):
             init.constant_(param, 0)
 
             
+def normalize(data, dataset_name='Fashion-MNIST'):
+    '''
+    Returns normalized version of data, as specified by
+    dataset_name.
+    
+    Keyword arguments:
+    > dataset_name (string) -- Name of the dataset being
+        trained on. Must be one of 'MNIST', 'CIFAR-10', or
+        'Fashion-MNIST'.
+    > data (torch.tensor) -- The data to be normalized.
+    '''
+    if dataset_name == 'MNIST':
+        mean, std = constants.MNIST_MEAN, constants.MNIST_STD
+    elif dataset_name == 'CIFAR-10':
+        mean, std = constants.CIFAR10_MEAN, constants.CIFAR10_STD
+    elif dataset_name == 'Fashion-MNIST':
+        mean, std = constants.FASHIONMNIST_MEAN, constants.FASHIONMNIST_STD
+    else:
+        raise Exception('Error: dataset_name must be one of {\'MNIST\', \'CIFAR-10\', '
+                        '\'Fashion-MINST\'}.')
+    return (data - mean) / std
+
+
+def denormalize(normalized_data, dataset_name='Fashion-MNIST'):
+    '''
+    Returns denormalized version of normalized data, as specified
+    by dataset_name.
+    
+    Keyword arguments:
+    > dataset_name (string) -- Name of the dataset being
+        trained on. Must be one of 'MNIST', 'CIFAR-10', or
+        'Fashion-MNIST'.
+    > normalized_data (torch.tensor) -- The data to be denormalized.
+    '''
+    if dataset_name == 'MNIST':
+        mean, std = constants.MNIST_MEAN, constants.MNIST_STD
+    elif dataset_name == 'CIFAR-10':
+        mean, std = constants.CIFAR10_MEAN, constants.CIFAR10_STD
+    elif dataset_name == 'Fashion-MNIST':
+        mean, std = constants.FASHIONMNIST_MEAN, constants.FASHIONMNIST_STD
+    else:
+        raise Exception('Error: dataset_name must be one of {\'MNIST\', \'CIFAR-10\', '
+                        '\'Fashion-MINST\'}.')
+    return (data * std) + mean
+
+    
 class Classifier_A(nn.Module):
     '''
     An implementation of Classifier A used by Samangouei et al in their paper 
@@ -38,6 +93,10 @@ class Classifier_A(nn.Module):
         self.fc_2 = nn.Linear(128, 10, bias=True)
 
     def forward(self, x):
+        
+        # Normalize first (WARNING: ASSUMES FASHION-MNIST)
+        x = normalize(x)
+        
         # Forward prop through conv layers
         hidden_1 = F.relu(self.conv_1(x))
         hidden_2 = F.relu(self.conv_2(hidden_1))
@@ -77,6 +136,9 @@ class Classifier_B(nn.Module):
         self.fc = nn.Linear(512, 10, bias=True)
 
     def forward(self, x):
+        # Normalize first (WARNING: ASSUMES FASHION-MNIST)
+        x = normalize(x)
+        
         x = self.drop_1(x)
         hidden_1 = F.relu(self.conv_1(x))
         hidden_2 = F.relu(self.conv_2(hidden_1))        
@@ -112,6 +174,8 @@ class Classifier_C(nn.Module):
         self.fc_2 = nn.Linear(128, 10, bias=True)
 
     def forward(self, x):
+        # Normalize first (WARNING: ASSUMES FASHION-MNIST)
+        x = normalize(x)
         hidden_1 = F.relu(self.conv_1(x))
         hidden_2 = F.relu(self.conv_2(hidden_1))
 
@@ -145,6 +209,8 @@ class Classifier_D(nn.Module):
         self.fc_3 = nn.Linear(200, 10, bias=True)
 
     def forward(self, x):
+        # Normalize first (WARNING: ASSUMES FASHION-MNIST)
+        x = normalize(x)
         N = x.shape[0]
         x = x.view(N, -1)
 
@@ -171,6 +237,8 @@ class Classifier_E(nn.Module):
         self.fc_3 = nn.Linear(200, 10, bias=True)
         
     def forward(self, x):
+        # Normalize first (WARNING: ASSUMES FASHION-MNIST)
+        x = normalize(x)
         N = x.shape[0]
         x = x.view(N, -1)
 
@@ -186,7 +254,6 @@ class VAE(nn.Module):
     Auto-Encoder" by Kingma and Welling. Shamelessly ported and modified from the
     PyTorch example library.
     '''
-
     def __init__(self):
         super(VAE, self).__init__()
 
@@ -302,10 +369,10 @@ class DAVAE(nn.Module):
         
     def forward(self, x):
         _, reconv_x, _, _ = self.generator(x)
-#        reconv_x = self.normalize(reconv_x) # We shouldn't normalize unless we have normalized images
         reconv_x = reconv_x.reshape(-1, 1, 28, 28) # Unflattening for conv net
         return self.classifier(reconv_x)
         
+    # Deprecated
     def normalize(self, data):
         return (data - torch.mean(data, dim=0, keepdim=True)) / torch.std(data, dim=0, keepdim=True)
         

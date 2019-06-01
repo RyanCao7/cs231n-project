@@ -45,7 +45,7 @@ def new_model(is_generator):
     Returns: N/A
     '''
     params = param_factory(is_generator=is_generator)
-    print('You are initializing a new', bolded('generator') if is_generator else bolded('classifier'), '.')
+    print('You are initializing a new', bolded('generator') if is_generator else bolded('classifier') + '.')
     model_list = constants.GENERATORS if is_generator else constants.CLASSIFIERS
     
     # Name
@@ -337,10 +337,6 @@ def perform_training(params):
         # Update the current epoch
         params['cur_epoch'] += 1
 
-        # Update train/val accuracy/loss plots
-        viz_utils.plot_accuracies(params)
-        viz_utils.plot_losses(params)
-
     train_utils.save_checkpoint(params, params['total_epochs'])
     print('\n--- END TRAINING ---\n')
 
@@ -423,17 +419,18 @@ def train_one_epoch(epoch, params):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        # Print training progress
+        # Prints/stores training acc/losses
         if i % params['print_frequency'] == 0:
+            params['train_losses'].append(losses.get_avg())
+            if not params['is_generator']:
+                params['train_accuracies'].append(top1.get_avg())
+            # Update train/val accuracy/loss plots
+            viz_utils.plot_accuracies(params)
+            viz_utils.plot_losses(params)
             progress.print(i)
             
     # Prints final training accuracy per epoch
     progress.print(len(params['train_dataloader']))
-
-    # Storing training losses/accuracies
-    params['train_losses'].append(losses.get_avg())
-    if not params['is_generator']:
-        params['train_accuracies'].append(top1.get_avg())
         
     return acc1
     
@@ -516,18 +513,20 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
             end = time.time()
 
             if i % params['print_frequency'] == 0:
+                # Storing validation losses/accuracies
+                if save:
+                    params['val_losses'].append(losses.get_avg())
+                    if not params['is_generator']:
+                        params['val_accuracies'].append(top1.get_avg())
+                    # Update train/val accuracy/loss plots
+                    viz_utils.plot_accuracies(params)
+                    viz_utils.plot_losses(params)
                 progress.print(i)
     
     # Print final accuracy/loss
     progress.print(len(params['val_dataloader']))
     if not params['is_generator']:
         print(' * Acc@1 {top1.avg:.3f}'.format(top1=top1))
-
-    # Storing validation losses/accuracies
-    if save:
-        params['val_losses'].append(losses.get_avg())
-        if not params['is_generator']:
-            params['val_accuracies'].append(top1.get_avg())
 
     if not adversarial:
         print('--- END VALIDATION PASS ---\n')

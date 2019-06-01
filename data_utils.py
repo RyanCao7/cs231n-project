@@ -3,6 +3,7 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils, datasets
 from torch.utils.data.sampler import SubsetRandomSampler
+import constants
 
 
 def get_dataloader(dataset_name='MNIST', val_split=0.2, batch_sz=4, num_threads=1, shuffle_val=True):
@@ -89,27 +90,13 @@ def transform_factory(dataset_name='MNIST'):
     > data_transforms -- a dictionary that can be passed into a DataLoader
         to process/augment an MNIST/CIFAR-10 dataset.
     """
-    
-    # MNIST mean and std pulled from 
-    # https://discuss.pytorch.org/t/normalization-in-the-mnist-example/457
-    # CIFAR-10 mean and std pulled from 
-    # https://gist.github.com/weiaicunzai/e623931921efefd4c331622c344d8151 (see first comment)
-    # with reference to
-    # https://github.com/tomgoldstein/loss-landscape/blob/master/cifar10/dataloader.py#L16
-    MNIST_MEAN = (0.1307,)
-    MNIST_STD = (0.3081,)
-    CIFAR10_MEAN = (0.4914, 0.4822, 0.4465)
-    CIFAR10_STD = (0.2470, 0.2435, 0.2616)
-    FASHIONMNIST_MEAN = (0.2860407,)
-    FASHIONMNIST_STD = (0.35302424,)
-
     normalize_transform = None
     if dataset_name == 'MNIST':
-        normalize_transform = transforms.Normalize(MNIST_MEAN, MNIST_STD)
+        normalize_transform = transforms.Normalize(constants.MNIST_MEAN, constants.MNIST_STD)
     elif dataset_name == 'CIFAR-10':
-        normalize_transform = transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD)
+        normalize_transform = transforms.Normalize(constants.CIFAR10_MEAN, constants.CIFAR10_STD)
     elif dataset_name == 'Fashion-MNIST':
-        normalize_transform = transforms.Normalize(FASHIONMNIST_MEAN, FASHIONMNIST_STD)
+        normalize_transform = transforms.Normalize(constants.FASHIONMNIST_MEAN, constants.FASHIONMNIST_STD)
     else:
         raise Exception('Error: dataset_name must be one of {\'MNIST\', \'CIFAR-10\', '
                         '\'Fashion-MINST\'}.')

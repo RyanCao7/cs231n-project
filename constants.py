@@ -67,3 +67,16 @@ CLASSIFIER_CRITERIA = [
 GENERATOR_CRITERIA = [
     'ReconKLD',
 ]
+
+# MNIST mean and std pulled from 
+# https://discuss.pytorch.org/t/normalization-in-the-mnist-example/457
+# CIFAR-10 mean and std pulled from 
+# https://gist.github.com/weiaicunzai/e623931921efefd4c331622c344d8151 (see first comment)
+# with reference to
+# https://github.com/tomgoldstein/loss-landscape/blob/master/cifar10/dataloader.py#L16
+MNIST_MEAN = 0.1307
+MNIST_STD = 0.3081
+CIFAR10_MEAN = (0.4914, 0.4822, 0.4465)
+CIFAR10_STD = (0.2470, 0.2435, 0.2616)
+FASHIONMNIST_MEAN = 0.2860407
+FASHIONMNIST_STD = 0.35302424
