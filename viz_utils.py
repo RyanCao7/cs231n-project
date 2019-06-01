@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from torchvision.utils import save_image
 
+import train_utils
+
 
 def general_plot(plot_points, plot_names, run_name, title, xlabel,
                  ylabel, plt_symbol='-o', figsize=(10, 8), scale=1):
@@ -103,3 +105,11 @@ def sample_VAE(vae_model, device, epoch, path):
                    path + '/sample_' + str(epoch) + '_' + cur_time + '.png')
     print('Finished! Samples saved under ' + path + '/sample_' + str(epoch) + 
           '_' + cur_time + '.png.')
+
+
+def visualize_attack(params, path):
+    '''
+    '''
+    data, perturbed_data = train_utils.sample_attack_from_dataset(params)
+    save_image(data.cpu(), path + '_regular.png')
+    save_image(perturbed_data.cpu(), path + '_attack.png')

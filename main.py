@@ -365,6 +365,9 @@ def train_one_epoch(epoch, params):
         progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, losses,
                                              top1, prefix='Epoch: [{}]'.format(epoch))
 
+    if params['adversarial_train']:
+        top1_adv = train_utils.AverageMeter('Adv@1', ':4.2f')
+
     # Switch to train mode. Important for dropout and batchnorm.
     params['model'].train()
 
@@ -391,11 +394,11 @@ def train_one_epoch(epoch, params):
         output = params['model'](data)
         
         # TODO: Not sure what this is doing...?
-        if params['is_generator'] and params['adversarial_train']:
-            x, recon_x, mu, logvar = output
-            N = x.shape[0]
-            x = torch.cat([x[0 : N / 2, :, :, :], x[0 : N / 2, :, :, :].clone()], dim=0)
-            output = x, recon_x, mu, logvar
+        # if params['is_generator'] and params['adversarial_train']:
+        #     x, recon_x, mu, logvar = output
+        #     N = x.shape[0]
+        #     x = torch.cat([x[0 : N / 2, :, :, :], x[0 : N / 2, :, :, :].clone()], dim=0)
+        #     output = x, recon_x, mu, logvar
             
         # Adversarial train uses slightly different criterion
         if params['adversarial_train']:
@@ -409,6 +412,10 @@ def train_one_epoch(epoch, params):
         if not params['is_generator']:
             acc1 = accuracy(output, target)[0]
             top1.update(acc1[0], data.size(0))
+
+        if params['adversarial_training']:
+            adv_acc1 = accuracy(perturbed_output, perturbed_target)[0]
+            top1_adv.update(adv_acc1[0], perturbed_data.size(0))
 
         # Compute gradient and do SGD step
         params['optimizer'].zero_grad()
@@ -738,12 +745,13 @@ def main():
                                       params['model'], params['cur_epoch'], 
                                       'visuals/' + params['run_name'])
                 if state_params[param_number]['model'] is not None:
-                    viz_utils.compare_VAE(train_utils.sample_attack_from_dataset(state_params[0]).to(params['device']),
+                    viz_utils.compare_VAE(train_utils.sample_attack_from_dataset(state_params[0])[1].to(params['device']),
                                       params['model'], params['cur_epoch'], 
                                       'visuals/' + params['run_name'] + '_FGSM_' + state_params[0]['run_name']) #TODO Make this a selectable attack
             else:
                 print('Can\'t sample - model is not generative!')
-                
+        elif user_input in ['-va', 'visualize', 'va']: #TODO come up with better naming scheme
+            viz_utils.visualize_attack(state_params[0], 'visuals/' + params['run_name'] + '_FGSM_' + state_params[0]['run_name'])
         elif user_input in ['-d', '--defend', 'd', 'defend']:
             if state_params[1]['model'] is None:
                 print('Can\'t defend - no generative model loaded.')
