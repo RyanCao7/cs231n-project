@@ -46,7 +46,7 @@ def sample_from_dataset(params):
             return data
 
 
-def sample_attack_from_dataset(params, attack_name='FGSM', epsilon=0.3, alpha=0.05):
+def sample_attack_from_dataset(params, attack_name='FGSM', epsilon=0.3, alpha=0.05, data=None):
     '''
     Because DataLoader API doesn't allow us to eaily/
     cleanly sample randomly from it...
