@@ -317,18 +317,20 @@ def perform_training(params):
 
         # Train for one epoch
         train_one_epoch(epoch, params)
-
-        # Evaluate on validation set
-        acc1 = validate(params, save=True, adversarial=False)
-        if params['adversarial_train']:
-            # TODO: MAKE VALIDATE ACTUALLY SAVE PROPERLY FOR ADVERSARIAL VALIDATION
-            ad_acc1 = validate(params, save=False, adversarial=True, adversarial_attack='FGSM', 
-                                whitebox=True)
-
-        # Update best val accuracy
-        if not params['is_generator']:
-            params['best_ad_val_acc'] = max(ad_acc1, params['best_ad_val_acc'])
-            params['best_val_acc'] = max(acc1, params['best_val_acc'])
+        
+        if params['evaluate']:
+            # Evaluate on validation set
+            acc1 = validate(params, save=True, adversarial=False)
+            if params['adversarial_train']:
+                # TODO: MAKE VALIDATE ACTUALLY SAVE PROPERLY FOR ADVERSARIAL VALIDATION
+                ad_acc1 = validate(params, save=False, adversarial=True, adversarial_attack='FGSM', 
+                                   whitebox=True)
+            
+            # Update best val accuracy
+            if not params['is_generator']:
+                if params['adversarial_train']:
+                    params['best_ad_val_acc'] = max(ad_acc1, params['best_ad_val_acc'])
+                params['best_val_acc'] = max(acc1, params['best_val_acc'])
 
         # Save checkpoint every 'save_every' epochs.
         if epoch % params['save_every'] == 0:
