@@ -413,7 +413,7 @@ def train_one_epoch(epoch, params):
             acc1 = accuracy(output, target)[0]
             top1.update(acc1[0], data.size(0))
 
-        if params['adversarial_training']:
+        if params['adversarial_train']:
             adv_acc1 = accuracy(perturbed_output, perturbed_target)[0]
             top1_adv.update(adv_acc1[0], perturbed_data.size(0))
 
