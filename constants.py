@@ -20,7 +20,7 @@ BATCH_SIZES = [1, 4, 8, 16, 32, 64, 128, 256]
 
 # Adversarial attack methods
 # ATTACKS = ['FGSM', 'RAND_FGSM', 'CW']
-ATTACKS = ['FGSM', 'RAND_FGSM', 'CW'] # DEBUGGING ONLY! TODO: REMOVE
+ATTACKS = ['FGSM', 'RAND_FGSM'] # DEBUGGING ONLY! TODO: REMOVE
 # ATTACKS = ['CW'] # DEBUGGING ONLY! TODO: REMOVE
 
 # torchvision.datasets.[dataset]

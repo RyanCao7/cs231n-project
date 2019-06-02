@@ -5,6 +5,7 @@ import os
 import subprocess
 import glob
 import threading
+import constants
 from boxsdk import Client, OAuth2
 from constants import CONFIG_FILE, CS231N_PROJECT_FOLDER, MODEL_FOLDER, SYNC_DIRECTORIES
 from datetime import datetime
@@ -130,7 +131,7 @@ def convert():
         convert_helper(folder_name, constants.get_cur_time())
         
 
-def convert_helper(folder_name, cur_time, convert_back=False):
+def convert_helper(folder_name, cur_time, convert_back=True):
     '''
     Recursively converts all local files (not dirs) to new
     timestamped format.
@@ -305,7 +306,7 @@ def main():
 #     client = get_client()
     
     # Converts local files to timestampped format
-#     convert()
+    convert()
     
     # Begin syncing everything to Box
 #     sync_download()
