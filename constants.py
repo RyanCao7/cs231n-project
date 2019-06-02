@@ -1,3 +1,5 @@
+from datetime import datetime
+
 # All classifier models
 CLASSIFIERS = [
     'Classifier_A', 
@@ -86,3 +88,8 @@ CONFIG_FILE = '.box_config.cfg'
 CS231N_PROJECT_FOLDER = 'CS231n'
 MODEL_FOLDER = 'models'
 SYNC_DIRECTORIES = ['models', 'visuals']
+
+
+# Standard datetime format
+def get_cur_time():
+    return datetime.now().strftime("%m-%d|%H:%M:%S")

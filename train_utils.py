@@ -25,12 +25,11 @@ def save_checkpoint(params, epoch):
 
     Returns: N/A
     '''
-    print('Saving current state to', 'models/' + model_type(params) + '/' + 
-          params['run_name'] + '/' + params['run_name'] + '_epoch_' + str(epoch) + 
-          DEFAULT_SAVE_EXTENSION)
-
-    torch.save(params, 'models/' + model_type(params) + '/' + params['run_name'] + 
-               '/' + params['run_name'] + '_epoch_' + str(epoch) + DEFAULT_SAVE_EXTENSION)
+    save_path = 'models/' + model_type(params) + '/' + params['run_name']
+                + '/' + params['run_name'] + '_epoch_' + str(epoch) + 
+                '~' + constants.get_cur_time() + DEFAULT_SAVE_EXTENSION
+    print('Saving current state to', save_path)
+    torch.save(save_path)
     # if is_best:
     #     shutil.copyfile(filename, 'model_best.pth.tar')
 

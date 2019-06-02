@@ -3,7 +3,7 @@ import torch
 import matplotlib.pyplot as plt
 from datetime import datetime
 from torchvision.utils import save_image
-
+import constants
 import train_utils
 
 
@@ -67,7 +67,6 @@ def compare_VAE(batch, generator, epoch, path):
     Returns: N/A
     '''
     print('Generating comparison images from VAE...')
-    cur_time = datetime.now().strftime("%m-%d-%Y~%H_%M_%S")
     if not os.path.isdir(path):
         os.makedirs(path)
     with torch.no_grad():
@@ -76,7 +75,7 @@ def compare_VAE(batch, generator, epoch, path):
         comparison = torch.cat([batch[:n],
                                recon_batch.view(batch.size(0), 1, 28, 28)[:n]])
         save_image(comparison.cpu(),
-                   path + '/reconstruction_' + str(epoch) + '_' + cur_time + '.png', nrow=n)
+                   path + '/reconstruction_' + str(epoch) + '~' + constants.get_cur_time() + '.png', nrow=n)
     print('Finished! Samples saved under ' + path + '/reconstruction_' + str(epoch) + '_' + 
           cur_time + '.png.')
 
@@ -102,7 +101,7 @@ def sample_VAE(vae_model, device, epoch, path):
         sample = vae_model.decode(sample).cpu()
         
         save_image(sample.view(64, 1, 28, 28),
-                   path + '/sample_' + str(epoch) + '_' + cur_time + '.png')
+                   path + '/sample_' + str(epoch) + '~' + constants.get_cur_time() + '.png')
     print('Finished! Samples saved under ' + path + '/sample_' + str(epoch) + 
           '_' + cur_time + '.png.')
 

@@ -340,3 +340,6 @@ graphs/*
 
 # Ignores local Box config file
 .box_config.cfg
+
+# Ignore visuals folder
+visuals/*
