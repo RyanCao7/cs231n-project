@@ -445,7 +445,8 @@ def train_one_epoch(epoch, params):
     viz_utils.plot_accuracies(params)
     viz_utils.plot_losses(params)
         
-    return acc1
+    if not params['is_generator']:
+        return acc1
     
 
 def validate(params, save=False, adversarial=False, adversarial_attack=None, 
@@ -545,7 +546,8 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
     if not adversarial:
         print('--- END VALIDATION PASS ---\n')
     
-    return acc1
+    if not params['is_generator']:
+        return acc1
 
 
 def attack_validate(params):
