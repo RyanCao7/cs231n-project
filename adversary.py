@@ -82,7 +82,8 @@ def fgsm_attack(batch, epsilon, batch_grad, min_pix, max_pix):
     return perturbed_batch.detach()
 
 
-def get_batch_grad(batch, target, model, loss_fcn, device):
+
+def get_batch_grad_old(batch, target, model, loss_fcn, device):
     '''
     Generated adversarial versions of a batch for a given attack.
     
@@ -102,6 +103,37 @@ def get_batch_grad(batch, target, model, loss_fcn, device):
 
     output = model(batch)
     loss = loss_fcn(output, target)
+
+    model.zero_grad()
+    loss.backward()
+
+    batch_grad = batch.grad.clone()
+    batch.grad.zero_() # Not sure if setting requires grad to False zeroes out grads
+    batch.requires_grad = False
+
+    return batch_grad
+
+def get_batch_grad(batch, target, model, loss_fcn, device):
+    '''
+    Generated adversarial versions of a batch for a given attack.
+    
+    Keyword arguments:
+    > batch (tensor) -- Collection of images to attack.
+    > target (tensor) -- Target classes for each image in input batch.
+    > model (nn.Module) -- Model with respect to the attack is being done.
+    > loss_fcn (function) -- Loss function for use with 'model'. Must use
+        interface (output, target).
+    > device (torch.device) -- Device for model computation.
+    
+    Return value: batch_grad
+    > batch_grad (tensor) -- Loss gradient with respect to batch.
+    '''
+    
+    batch.requires_grad = True
+
+    output = model(batch)
+    true_logits = output.gather(1, target.view(-1, 1)).squeeze()
+    loss = - true_logits.sum()
 
     model.zero_grad()
     loss.backward()
