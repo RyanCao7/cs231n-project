@@ -320,6 +320,7 @@ def perform_training(params):
 
         # Train for one epoch
         train_one_epoch(epoch, params)
+        print('--- TRAINING: end epoch', epoch, '---')
         
         if params['evaluate']:
             # Evaluate on validation set
@@ -338,8 +339,6 @@ def perform_training(params):
         # Save checkpoint every 'save_every' epochs.
         if epoch % params['save_every'] == 0:
             train_utils.save_checkpoint(params, epoch)
-
-        print('--- TRAINING: end epoch', params['cur_epoch'], '---\n')
             
         # Update the current epoch
         params['cur_epoch'] += 1
@@ -590,11 +589,12 @@ def attack_validate(params):
 # TODO: Allow this to be altered
 def adjust_learning_rate(epoch, params):
     """Sets the learning rate to the initial LR decayed by 3 every 10 epochs"""
-    lr = params['learning_rate'] * (0.33 ** (epoch // 10))
-    if epoch // 10 > 0 and epoch % 10 == 0:
-        print(f'Dropping learning rate from {params["learning_rate"]} to {lr} after epoch {epoch}')
-    for param_group in params['optimizer'].param_groups:
-        param_group['lr'] = lr
+    pass
+#     lr = params['learning_rate'] * (0.33 ** (epoch // 10))
+#     if epoch // 10 > 0 and epoch % 10 == 0:
+#         print(f'Dropping learning rate from {params["learning_rate"]} to {lr} after epoch {epoch}')
+#     for param_group in params['optimizer'].param_groups:
+#         param_group['lr'] = lr
 
 
 def accuracy(output, target, topk=(1,)):
