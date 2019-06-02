@@ -109,8 +109,12 @@ def sync_helper(root, full_local_dir_name):
                 subfolder.upload(subsubpath)
                 continue
             if should_update(old_filename, get_item_name(subsubpath)):
+                file = None
+                for item in current_subfolder_items:
+                    if get_filename(item.name) == get_filename(get_item_name(subsubpath)):
+                        file = item
                 print('Updating', subsubpath)
-                subfolder.update_contents(subsubpath)
+                file.update_contents(subsubpath)
 
     # Wait for all child threads to finish
     for worker in all_workers:
