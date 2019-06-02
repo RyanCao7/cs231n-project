@@ -8,6 +8,7 @@ import glob
 import constants
 import loss_functions
 import box_utils
+import viz_utils
 from adversary import attack_batch
 
 
@@ -30,18 +31,11 @@ def save_checkpoint(params, epoch):
                 + '/' + params['run_name'] + '_epoch_' + str(epoch) + \
                 '~' + constants.get_cur_time() + DEFAULT_SAVE_EXTENSION
     
-    possible_duplicates_name = save_path[:save_path.rfind('~')]
-    directory = 'models/' + model_type(params) + '/' + params['run_name'] + '/'
-    
-    # If a previous version exists, get rid of it.
-    for name in glob.glob(directory + '*'):
-        if possible_duplicates_name in name:
-            subprocess.check_output(['rm', name])
-    
     print('Saving current state to', save_path)
     torch.save(params, save_path)
     
     # Uploads single saved checkpoint to Box
+    viz_utils.rid_duplicate(save_path)
     box_utils.upload_single(save_path)
 
     

@@ -219,7 +219,10 @@ def sync_download_helper(local_path, box_folder):
     all_workers = []
     for item in box_folder.get_items():
         if type(item) == boxsdk.object.folder.Folder:
-            worker = threading.Thread(target=sync_download_helper, args=(local_path + item.name + '/', item))
+            new_path = local_path + item.name + '/'
+            if not os.path.isdir(new_path):
+                os.makedirs(new_path)
+            worker = threading.Thread(target=sync_download_helper, args=(new_path, item))
             all_workers.append(worker)
             worker.start()
         else:
@@ -228,8 +231,8 @@ def sync_download_helper(local_path, box_folder):
                 local_file = open(local_path + item.name, 'wb')
                 item.download_to(local_file)
                 local_file.close()
-            
-            
+
+
     # Wait for all download threads to finish
     for worker in all_workers:
         worker.join()

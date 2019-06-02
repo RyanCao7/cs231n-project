@@ -13,9 +13,30 @@ def save_and_upload_image(tensor, save_path, **kwargs):
     '''
     Wrapper to save and upload an image.
     '''
+    rid_duplicate(save_path)
     save_image(tensor, save_path, **kwargs)
-    worker = threading.Thread(target=box_utils.upload_single, args=(save_path,))
-    worker.start() # TODO: Super sketchy - we don't wait for the thread to finish...
+    box_utils.upload_single(save_path)
+    
+    # No need lol - it just behaves as a single thread
+#     worker = threading.Thread(target=box_utils.upload_single, args=(save_path,))
+#     worker.start()
+
+
+def rid_duplicate(save_path):
+    '''
+    Checks to see if there are any older duplicates, and removes
+    them if so.
+    
+    Keyword arguments:
+    save_path (string) -- full path of the file to be saved.
+    '''
+    possible_duplicates_name = save_path[:save_path.rfind('~')]
+    directory = save_path[save_path.find('/'):]
+    
+    # If a previous version exists, get rid of it.
+    for name in glob.glob(directory + '*'):
+        if possible_duplicates_name in name:
+            subprocess.check_output(['rm', name])
 
 
 def general_plot(plot_points, plot_names, run_name, title, xlabel,
@@ -31,7 +52,8 @@ def general_plot(plot_points, plot_names, run_name, title, xlabel,
     > xlabel (string) -- plot x-axis label
     > ylabel (string) -- plot y-axis label
     '''
-    save_name = 'graphs/' + run_name + '/' + run_name + '_' + title.lower() + constants.get_cur_time() + '.png'
+    save_name = 'graphs/' + run_name + '/' + run_name + '_' + title.lower() + \
+                '~' + constants.get_cur_time() + '.png'
     if not os.path.isdir('graphs/' + run_name + '/'):
         os.makedirs('graphs/' + run_name + '/')
     plt.figure(figsize=figsize)
@@ -46,6 +68,7 @@ def general_plot(plot_points, plot_names, run_name, title, xlabel,
     plt.close()
     
     # Syncs with Box
+    rid_duplicate(save_name)
     box_utils.upload_single(save_name)
 
     
