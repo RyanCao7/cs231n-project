@@ -17,10 +17,6 @@ def save_and_upload_image(tensor, save_path, **kwargs):
     rid_duplicate(save_path)
     save_image(tensor, save_path, **kwargs)
     box_utils.upload_single(save_path)
-    
-    # No need lol - it just behaves as a single thread
-#     worker = threading.Thread(target=box_utils.upload_single, args=(save_path,))
-#     worker.start()
 
 
 def rid_duplicate(save_path):
@@ -41,7 +37,7 @@ def rid_duplicate(save_path):
 
 
 def general_plot(plot_points, plot_names, run_name, title, xlabel,
-                 ylabel, plt_symbol='-o', figsize=(10, 8), scale=1):
+                 ylabel, plt_symbol='-o', figsize=(10, 8), scales=[1]):
     '''
     Generic plotting function to be used for acc/loss.
     
@@ -60,7 +56,7 @@ def general_plot(plot_points, plot_names, run_name, title, xlabel,
     plt.figure(figsize=figsize)
     plt.title(title)
     for idx, plot in enumerate(plot_points):
-        x_labels = list(i * scale for i in range(len(plot)))
+        x_labels = list(i * scales[idx] for i in range(len(plot)))
         plt.plot(x_labels, plot, plt_symbol, label=plot_names[idx])
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
@@ -77,18 +73,22 @@ def plot_accuracies(params):
     '''
     Simple accuracy over training iterations plot.
     '''
+    train_scale = params['print_frequency'] / (params['batch_size'] * len(params['train_dataloader']))
+    val_scale = params['print_frequency'] / (params['batch_size'] * len(params['val_dataloader']))
     general_plot([params['train_accuracies'], params['val_accuracies']],
                  ['Training Accuracy', 'Validation Accuracy'], params['run_name'],
-                 'Accuracies', 'Iterations', 'Accuracy', scale=params['print_frequency'])
+                 'Accuracies', 'Iterations', 'Accuracy', scales=[train_scale, val_scale])
 
 
 def plot_losses(params):
     '''
     Simple loss over training iterations plot.
     '''
+    train_scale = params['print_frequency'] / (params['batch_size'] * len(params['train_dataloader']))
+    val_scale = params['print_frequency'] / (params['batch_size'] * len(params['val_dataloader']))
     general_plot([params['train_losses'], params['val_losses']],
                  ['Training Loss', 'Validation Loss'], params['run_name'],
-                 'Losses', 'Iterations', 'Loss', scale=params['print_frequency'])
+                 'Losses', 'Iterations', 'Loss', scales=[train_scale, val_scale])
 
 
 MAX_IMG = 8
