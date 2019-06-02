@@ -42,16 +42,20 @@ def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM',
     target = target.to(device)
     model.eval()
 
+    # We are doing untargeted, so we are going to ignore the 'target' classes
     if attack_name == 'FGSM':
-        return fgsm_attack(batch, epsilon, get_batch_grad(batch, target, model, 
-                                                          loss_fcn, device),
-                           min_pix, max_pix)
+        return fgsm_attack(batch, 
+                           epsilon, 
+                           get_batch_grad(batch, model, loss_fcn, device, target=None),
+                           min_pix, 
+                           max_pix)
     elif attack_name == 'RAND_FGSM':
         noisy_batch = batch + alpha * torch.sign(torch.randn_like(batch))
-        return fgsm_attack(noisy_batch, epsilon - alpha, get_batch_grad(noisy_batch,
-                                                                target, model,
-                                                                loss_fcn, device),
-                           min_pix, max_pix)
+        return fgsm_attack(noisy_batch, 
+                           epsilon - alpha, 
+                           get_batch_grad(noisy_batch, model, loss_fcn, device, target=None),
+                           min_pix, 
+                           max_pix)
     elif attack_name == 'CW':
 #         return cw_attack(batch, target, model, device, lr, num_iter, c, min_pix, max_pix)
         return reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c)
@@ -82,8 +86,7 @@ def fgsm_attack(batch, epsilon, batch_grad, min_pix, max_pix):
     return perturbed_batch.detach()
 
 
-
-def get_batch_grad_old(batch, target, model, loss_fcn, device):
+def get_batch_grad(batch, model, loss_fcn, device, target=None):
     '''
     Generated adversarial versions of a batch for a given attack.
     
@@ -98,8 +101,13 @@ def get_batch_grad_old(batch, target, model, loss_fcn, device):
     Return value: batch_grad
     > batch_grad (tensor) -- Loss gradient with respect to batch.
     '''
-    
-    batch.requires_grad = True
+
+    batch = batch.clone().detach().to(torch.float).requires_grad_(True) 
+
+    if target is None:
+        # Using model predictions as ground truth to avoid label leaking
+        # See https://arxiv.org/abs/1611.01236 for more details
+        _, target = torch.max(model(batch), 1)
 
     output = model(batch)
     loss = loss_fcn(output, target)
@@ -108,40 +116,6 @@ def get_batch_grad_old(batch, target, model, loss_fcn, device):
     loss.backward()
 
     batch_grad = batch.grad.clone()
-    batch.grad.zero_() # Not sure if setting requires grad to False zeroes out grads
-    batch.requires_grad = False
-
-    return batch_grad
-
-def get_batch_grad(batch, target, model, loss_fcn, device):
-    '''
-    Generated adversarial versions of a batch for a given attack.
-    
-    Keyword arguments:
-    > batch (tensor) -- Collection of images to attack.
-    > target (tensor) -- Target classes for each image in input batch.
-    > model (nn.Module) -- Model with respect to the attack is being done.
-    > loss_fcn (function) -- Loss function for use with 'model'. Must use
-        interface (output, target).
-    > device (torch.device) -- Device for model computation.
-    
-    Return value: batch_grad
-    > batch_grad (tensor) -- Loss gradient with respect to batch.
-    '''
-    
-    batch.requires_grad = True
-
-    output = model(batch)
-    true_logits = output.gather(1, target.view(-1, 1)).squeeze()
-    loss = - true_logits.sum()
-
-    model.zero_grad()
-    loss.backward()
-
-    batch_grad = batch.grad.clone()
-    batch.grad.zero_() # Not sure if setting requires grad to False zeroes out grads
-    batch.requires_grad = False
-
     return batch_grad
     
     
