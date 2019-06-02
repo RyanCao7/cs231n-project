@@ -54,11 +54,12 @@ def locate_folder(root, name):
     return folder
 
 
-def sync(client):
+def sync():
     '''
     Synchronizes all folders from constants.SYNC_DIRECTORIES
     given a logged-in client.
     '''
+    client = get_client()
     print('Begin syncing items to Box...')
     # Root Box directory
     root_folder = client.folder('0')
@@ -71,21 +72,23 @@ def sync(client):
         sync_helper(cs231n_folder, local_dir_name)
     print('Finished syncing items to Box!')
 
-        
+
+def contains(root_items, name):
+    '''
+    Speeds up sync_helper by sending fewer requests.
+    '''
+    for thing in root_items:
+        if get_filename(thing.name) == get_filename(name):
+            return True, thing.name
+    return False, None
+    
+    
 def sync_helper(root, full_local_dir_name):
     '''
     Recursively copies over all things in local_dir_name to root.
     Precondition: Substring of full_local_dir_name after the final
     forward slash is the subfolder we want to make in root.
     '''
-    def contains(root_items, name):
-        '''
-        Speeds up sync_helper by sending fewer requests.
-        '''
-        for thing in root_items:
-            if get_filename(thing.name) == get_filename(name):
-                return True, thing.name
-        return False, None
     
     # Grabs subfolder + contents
     subfolder_name = get_item_name(full_local_dir_name)
@@ -183,10 +186,11 @@ def value_secs(timestamp):
     return total_secs + 3600 * int(time[0]) + 60 * int(time[1]) + int(time[2])
     
 
-def sync_download(client):
+def sync_download():
     '''
     Syncs the folders in cs231n_folder to local filesystem.
     '''
+    client = get_client()
     print('Begin syncing items from Box...')
     # Root Box directory
     root_folder = client.folder('0')
@@ -205,7 +209,6 @@ def should_local_update(local_folder, box_file_name):
         if get_filename(box_file_name) == get_filename(get_item_name(full_path)):
             return should_update(get_item_name(full_path), box_file_name)
     return True
-            
     
     
 def sync_download_helper(local_path, box_folder):
@@ -255,20 +258,51 @@ def get_client():
 
 
 def upload_single(local_file_path):
-    
-
-    
-def main():
-    
-    # Grabs client to login from
+    '''
+    Takes a local file and sticks it in the correct corresponding
+    Box folder.
+    '''
     client = get_client()
+    # Root Box directory
+    folder = client.folder('0')
+    
+    # Grabs the online cs231n folder
+    folder = locate_folder(folder, CS231N_PROJECT_FOLDER)
+    
+    # Keeps a copy to reference later for uploading/updating.
+    full_path = str(local_file_path)
+    
+    # Drill down to the correct folder
+    while '/' in local_file_path:
+        next_root = local_file_path[:local_file_path.find('/')]
+        folder = locate_folder(folder, next_root)
+        local_file_path = local_file_path[local_file_path.find('/') + 1:]
+        
+    current_folder_items = list(folder.get_items()._items_generator()) # Hacky
+    exists, old_filename = contains(current_folder_items, local_file_path)
+    if not exists:
+        print('Uploading', full_path)
+        folder.upload(full_path)
+    else:
+        file = None
+        for item in current_folder_items:
+            if get_filename(item.name) == get_filename(local_file_path):
+                file = item
+        print('Updating', full_path)
+        file.update_contents(full_path)
+
+
+def main():
+    pass
+    # Grabs client to login from
+#     client = get_client()
     
     # Converts local files to timestampped format
 #     convert()
     
     # Begin syncing everything to Box
-    sync_download(client)
-    sync(client)
+#     sync_download()
+#     sync()
     
     
 if __name__ == '__main__':

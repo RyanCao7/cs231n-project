@@ -5,6 +5,17 @@ from datetime import datetime
 from torchvision.utils import save_image
 import constants
 import train_utils
+import box_utils
+import threading
+
+
+def save_and_upload_image(tensor, save_path, **kwargs):
+    '''
+    Wrapper to save and upload an image.
+    '''
+    save_image(tensor, save_path, **kwargs)
+    worker = threading.Thread(target=box_utils.upload_single, args=(save_path,))
+    worker.start() # TODO: Super sketchy - we don't wait for the thread to finish...
 
 
 def general_plot(plot_points, plot_names, run_name, title, xlabel,
@@ -20,6 +31,7 @@ def general_plot(plot_points, plot_names, run_name, title, xlabel,
     > xlabel (string) -- plot x-axis label
     > ylabel (string) -- plot y-axis label
     '''
+    save_name = 'graphs/' + run_name + '/' + run_name + '_' + title.lower() + constants.get_cur_time() + '.png'
     if not os.path.isdir('graphs/' + run_name + '/'):
         os.makedirs('graphs/' + run_name + '/')
     plt.figure(figsize=figsize)
@@ -30,8 +42,11 @@ def general_plot(plot_points, plot_names, run_name, title, xlabel,
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.legend(loc='lower right')
-    plt.savefig('graphs/' + run_name + '/' + run_name + '_' + title.lower() + '.png')
+    plt.savefig(save_name)
     plt.close()
+    
+    # Syncs with Box
+    box_utils.upload_single(save_name)
 
     
 def plot_accuracies(params):
@@ -69,15 +84,15 @@ def compare_VAE(batch, generator, epoch, path):
     print('Generating comparison images from VAE...')
     if not os.path.isdir(path):
         os.makedirs(path)
+    save_path = path + '/reconstruction_' + str(epoch) + '~' + constants.get_cur_time() + '.png'
     with torch.no_grad():
         n = min(batch.size(0), 8)
         _, recon_batch, _, _ = generator(batch)
         comparison = torch.cat([batch[:n],
                                recon_batch.view(batch.size(0), 1, 28, 28)[:n]])
-        save_image(comparison.cpu(),
-                   path + '/reconstruction_' + str(epoch) + '~' + constants.get_cur_time() + '.png', nrow=n)
-    print('Finished! Samples saved under ' + path + '/reconstruction_' + str(epoch) + '_' + 
-          cur_time + '.png.')
+        save_and_upload_image(comparison.cpu(), save_path, nrow=n)
+
+    print('Finished! Samples saved under ' + save_path)
 
     
 def sample_VAE(vae_model, device, epoch, path):
@@ -95,23 +110,22 @@ def sample_VAE(vae_model, device, epoch, path):
     cur_time = datetime.now().strftime("%m-%d-%Y~%H_%M_%S")
     if not os.path.isdir(path):
         os.makedirs(path)
+    save_path = path + '/sample_' + str(epoch) + '~' + constants.get_cur_time() + '.png'
     vae_model.eval()
     with torch.no_grad():
         sample = torch.randn(64, 20).to(device)
         sample = vae_model.decode(sample).cpu()
-        
-        save_image(sample.view(64, 1, 28, 28),
-                   path + '/sample_' + str(epoch) + '~' + constants.get_cur_time() + '.png')
-    print('Finished! Samples saved under ' + path + '/sample_' + str(epoch) + 
-          '_' + cur_time + '.png.')
+        save_and_upload_image(sample.view(64, 1, 28, 28), save_path)
 
+    print('Finished! Samples saved under ' + save_path)
+    
 
 def visualize_attack(params, path):
     '''
     '''
     data, perturbed_data = train_utils.sample_attack_from_dataset(params)
     print(data.min(), data.max(), perturbed_data.min(), perturbed_data.max())
-    save_image(data.cpu(), path + '_regular.png')
-    save_image(perturbed_data.cpu(), path + '_attack.png')
-    save_image(data.cpu(), path + '_regular_norm.png')
-    save_image(perturbed_data.cpu(), path + '_attack_norm.png')
+    save_and_upload_image(data.cpu(), path + '_regular.png')
+    save_and_upload_image(perturbed_data.cpu(), path + '_attack.png')
+    save_and_upload_image(data.cpu(), path + '_regular_norm.png', normalize=True)
+    save_and_upload_image(perturbed_data.cpu(), path + '_attack_norm.png', normalize=True)

@@ -7,6 +7,7 @@ import subprocess
 import glob
 import constants
 import loss_functions
+import box_utils
 from adversary import attack_batch
 
 
@@ -28,10 +29,20 @@ def save_checkpoint(params, epoch):
     save_path = 'models/' + model_type(params) + '/' + params['run_name'] \
                 + '/' + params['run_name'] + '_epoch_' + str(epoch) + \
                 '~' + constants.get_cur_time() + DEFAULT_SAVE_EXTENSION
+    
+    possible_duplicates_name = save_path[:save_path.rfind('~')]
+    directory = 'models/' + model_type(params) + '/' + params['run_name'] + '/'
+    
+    # If a previous version exists, get rid of it.
+    for name in glob.glob(directory + '*'):
+        if possible_duplicates_name in name:
+            subprocess.check_output(['rm', name])
+    
     print('Saving current state to', save_path)
     torch.save(params, save_path)
-    # if is_best:
-    #     shutil.copyfile(filename, 'model_best.pth.tar')
+    
+    # Uploads single saved checkpoint to Box
+    box_utils.upload_single(save_path)
 
     
 def sample_from_dataset(params):
@@ -290,7 +301,7 @@ def delete_future_checkpoints(params):
                          str(params['cur_epoch'] + 1) + ') epoch:')
     to_be_deleted = []
     for checkpoint in glob.glob(path + params['run_name'] + '/*.pth.tar'):
-        run_num = int(checkpoint[checkpoint.rfind('_') + 1 : checkpoint.find('.pth.tar')])
+        run_num = int(checkpoint[checkpoint.rfind('_') + 1 : checkpoint.find('~')])
         if run_num > params['cur_epoch'] + 1:
             print('To be deleted:', checkpoint)
             to_be_deleted.append(checkpoint)

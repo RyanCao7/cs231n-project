@@ -33,6 +33,9 @@ import adversary
 # For VAE-generated visualization
 import viz_utils
 
+# For syncing with Box
+import box_utils
+
 
 def new_model(is_generator):
     '''
@@ -433,13 +436,14 @@ def train_one_epoch(epoch, params):
             params['train_losses'].append(losses.get_avg())
             if not params['is_generator']:
                 params['train_accuracies'].append(top1.get_avg())
-            # Update train/val accuracy/loss plots
-            viz_utils.plot_accuracies(params)
-            viz_utils.plot_losses(params)
             progress.print(i)
             
     # Prints final training accuracy per epoch
     progress.print(len(params['train_dataloader']))
+    
+    # Update train/val accuracy/loss plots
+    viz_utils.plot_accuracies(params)
+    viz_utils.plot_losses(params)
         
     return acc1
     
@@ -527,9 +531,6 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
                     params['val_losses'].append(losses.get_avg())
                     if not params['is_generator']:
                         params['val_accuracies'].append(top1.get_avg())
-                    # Update train/val accuracy/loss plots
-                    viz_utils.plot_accuracies(params)
-                    viz_utils.plot_losses(params)
                 progress.print(i)
     
     # Print final accuracy/loss
@@ -537,6 +538,10 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
     if not params['is_generator']:
         print(' * Acc@1 {top1.avg:.3f}'.format(top1=top1))
 
+    # Update train/val accuracy/loss plots
+    viz_utils.plot_accuracies(params)
+    viz_utils.plot_losses(params)
+        
     if not adversarial:
         print('--- END VALIDATION PASS ---\n')
     
@@ -674,10 +679,12 @@ def print_help(params, param_number):
     print('-e: Edit. Gives the option to edit the current state.')
     print('-m: Models. Lists all saved models.')
     print('-d: Defend. Runs the combined generator + classifier network on adversarial examples.')
+    print('-y: Sync. Syncs everything by pulling first from Box, then pushing everything. May be slow.')
     
     # Classifier state only
     if param_number == 0:
         print('-a: Adversarial. Runs the currently loaded network on adversarial examples.')
+        print('-i: Visualize. Generates a sampled batch + its attacked counterpart.')
         
     # Generator state only
     elif param_number == 1:
@@ -719,6 +726,9 @@ def main():
         user_input = input('What would you like to do? (type -h for help) -> ')
         if user_input in ['-t', '--train', 't', 'train']:
             perform_training(params)
+        elif user_input in ['-y', '--sync', 'y', 'sync']:
+            box_utils.sync_download()
+            box_utils.sync()
         elif user_input in ['-v', '--validate', 'v', 'validate']:
             validate(params)
         elif user_input in ['-l', '--load', 'l', 'load']:
@@ -752,7 +762,8 @@ def main():
                                       'visuals/' + params['run_name'] + '_FGSM_' + state_params[0]['run_name']) #TODO Make this a selectable attack
             else:
                 print('Can\'t sample - model is not generative!')
-        elif user_input in ['-va', 'visualize', 'va']: #TODO come up with better naming scheme
+        elif user_input in ['-i', '--visualize', 'i', 'visualize']: #TODO come up with better naming scheme
+            # TODO: ensure we have a classifier
             viz_utils.visualize_attack(state_params[0], 'visuals/' + params['run_name'] + '_FGSM_' + state_params[0]['run_name'])
         elif user_input in ['-d', '--defend', 'd', 'defend']:
             if state_params[1]['model'] is None:
