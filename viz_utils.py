@@ -136,7 +136,7 @@ def sample_VAE(vae_model, device, epoch, path):
     save_path = path + '/sample_' + str(epoch) + '~' + constants.get_cur_time() + '.png'
     vae_model.eval()
     with torch.no_grad():
-        sample = torch.randn(64, 20).to(device)
+        sample = torch.randn(64, 128).to(device)
         sample = vae_model.decode(sample).cpu()
         save_and_upload_image(sample.view(64, 1, 28, 28), save_path)
 
