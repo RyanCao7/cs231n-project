@@ -75,9 +75,9 @@ def initialize_dirs():
     if not os.path.isdir('datasets/'):
         os.makedirs('datasets/')
     if not os.path.isdir('models/classifier/'):
-        os.makedirs('models/classifiers/')
+        os.makedirs('models/classifier/')
     if not os.path.isdir('models/generator/'):
-        os.makedirs('models/generators/')
+        os.makedirs('models/generator/')
     if not os.path.isdir('graphs/'):
         os.makedirs('graphs/')
     if not os.path.isdir('visuals/'):
