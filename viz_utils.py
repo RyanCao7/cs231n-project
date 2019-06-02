@@ -131,13 +131,12 @@ def sample_VAE(vae_model, device, epoch, path):
     Returns: N/A
     '''
     print('Sampling from VAE...')
-    cur_time = datetime.now().strftime("%m-%d-%Y~%H_%M_%S")
     if not os.path.isdir(path):
         os.makedirs(path)
     save_path = path + '/sample_' + str(epoch) + '~' + constants.get_cur_time() + '.png'
     vae_model.eval()
     with torch.no_grad():
-        sample = torch.randn(64, 20).to(device)
+        sample = torch.randn(64, 128).to(device)
         sample = vae_model.decode(sample).cpu()
         save_and_upload_image(sample.view(64, 1, 28, 28), save_path)
 
@@ -146,10 +145,13 @@ def sample_VAE(vae_model, device, epoch, path):
 
 def visualize_attack(params, path):
     '''
+    Saves the image of the raw data from a dataloader,
+    alongside its perturbed version.
     '''
     data, perturbed_data = train_utils.sample_attack_from_dataset(params)
     print(data.min(), data.max(), perturbed_data.min(), perturbed_data.max())
-    save_and_upload_image(data.cpu(), path + '_regular.png')
-    save_and_upload_image(perturbed_data.cpu(), path + '_attack.png')
-    save_and_upload_image(data.cpu(), path + '_regular_norm.png', normalize=True)
-    save_and_upload_image(perturbed_data.cpu(), path + '_attack_norm.png', normalize=True)
+    save_and_upload_image(data.cpu(), path + '_regular~' + constants.get_cur_time() + '.png')
+    save_and_upload_image(perturbed_data.cpu(), path + '_attack~' + constants.get_cur_time() + '.png')
+    save_and_upload_image(data.cpu(), path + '_regular_norm~' + constants.get_cur_time() + '.png', normalize=True)
+    save_and_upload_image(perturbed_data.cpu(), path + '_attack_norm~' + constants.get_cur_time() + '.png', normalize=True)
+    print('Finished visualizing!')
