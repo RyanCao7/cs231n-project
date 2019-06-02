@@ -9,18 +9,28 @@ import constants
 
 def initialize_model(model):
     '''
-    Performs Kaiming weight initialization for a
+    Performs Kaiming weight initialzation for a 
     given model.
+
+    Keyword arguments:
+    > model (nn.Module) -- The model whose weights are
+        to be initialized.
+    '''
+    model.apply(initialize_weight)
+
+
+def initialize_weight(param):
+    '''
+    Performs Kaiming weight initialization for a
+    given parameter.
     
     Keyword arguments:
-    > model (torch.nn.Module) -- the model whose 
+    > param (torch.nn.Module) -- the parameter whose 
         weights are to be initialized.
     '''
-    for name, param in model.named_parameters():
-        if name.endswith('.weight'):
-            init.kaiming_normal_(param, mode='fan_in', nonlinearity='relu')
-        elif name.endswith('.bias'):
-            init.constant_(param, 0)
+    if isinstance(param, nn.Conv2d) or isinstance(param, nn.Linear) or isinstance(param, nn.ConvTranspose2d):
+        init.kaiming_normal_(param.weight, mode='fan_in', nonlinearity='relu')
+        init.constant_(param.bias, 0)
 
             
 def normalize(data, dataset_name='Fashion-MNIST'):
