@@ -8,7 +8,7 @@ class ReconKLD(loss._WeightedLoss):
 
     def forward(self, output, _):
         x, recon_x, mu, logvar = output
-        BCE = F.binary_cross_entropy(recon_x, x.view(-1, 784), reduction='sum')
+        BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
 
         # see Appendix B from VAE paper:
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014

@@ -284,7 +284,7 @@ class VAE(nn.Module):
 
     def decode(self, z):
         h3 = F.relu(self.fc3(z))
-        return torch.sigmoid(self.fc4(h3))
+        return torch.sigmoid(self.fc4(h3)).view(-1, 1, 28, 28)
 
     def forward(self, x):
         mu, logvar = self.encode(x.view(-1, 784))
