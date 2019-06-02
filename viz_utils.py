@@ -110,5 +110,8 @@ def visualize_attack(params, path):
     '''
     '''
     data, perturbed_data = train_utils.sample_attack_from_dataset(params)
+    print(data.min(), data.max(), perturbed_data.min(), perturbed_data.max())
     save_image(data.cpu(), path + '_regular.png')
     save_image(perturbed_data.cpu(), path + '_attack.png')
+    save_image(data.cpu(), path + '_regular_norm.png')
+    save_image(perturbed_data.cpu(), path + '_attack_norm.png')
