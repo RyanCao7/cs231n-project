@@ -274,6 +274,7 @@ def input_from_list(the_list, item, default=None):
         as specified by the user.
     '''
 
+    the_list = sorted(the_list)
     for idx, list_item in enumerate(the_list):
         print(str((idx + 1)) + ':', list_item)
     input_idx = int_input('Please type the index of the ' + item + ' you wish to choose (enter for default) -> ') - 1

@@ -313,7 +313,7 @@ def perform_training(params):
     # Training/val loop
     for epoch in range(params['cur_epoch'] + 1, params['total_epochs'] + 1):
         
-        print('Training: begin epoch', epoch)
+        print('--- TRAINING: begin epoch', epoch, '---')
 
         # LR Decay - currently a stepwise decay
         adjust_learning_rate(epoch, params)
@@ -339,6 +339,8 @@ def perform_training(params):
         if epoch % params['save_every'] == 0:
             train_utils.save_checkpoint(params, epoch)
 
+        print('--- TRAINING: end epoch', params['cur_epoch'], '---\n')
+            
         # Update the current epoch
         params['cur_epoch'] += 1
 
@@ -545,8 +547,7 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
         viz_utils.plot_accuracies(params)
         viz_utils.plot_losses(params)
         
-    if not adversarial:
-        print('--- END VALIDATION PASS ---\n')
+    print('--- END VALIDATION PASS ---\n')
     
     if not params['is_generator']:
         return acc1

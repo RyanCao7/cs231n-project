@@ -306,7 +306,7 @@ def main():
 #     client = get_client()
     
     # Converts local files to timestampped format
-    convert()
+#     convert()
     
     # Begin syncing everything to Box
 #     sync_download()
