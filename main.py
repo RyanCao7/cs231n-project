@@ -19,7 +19,7 @@ from data_utils import get_dataloader
 
 # For training utility functions
 import train_utils
-from train_utils import model_type, bolded # Ease of use
+from train_utils import model_type, bolded, color # Ease of use
 
 # For models
 import models
@@ -539,7 +539,7 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
     # Print final accuracy/loss
     progress.print(len(params['val_dataloader']))
     if not params['is_generator']:
-        print(' * Acc@1 {top1.avg:.3f}'.format(top1=top1))
+        print(color.GREEN + ' * Acc@1 {top1.avg:.3f}'.format(top1=top1) + color.END)
 
     # Update train/val accuracy/loss plots
     if save:
@@ -726,7 +726,7 @@ def main():
     # Console-style program
     while True:
         params = state_params[param_number]
-        print('============== CS231n Project Console ==============')
+        print(color.BLUE + '============== CS231n Project Console ==============' + color.END)
         print('\nYou are currently in the', 
               bolded('classifier' if param_number == 0 else 'generator'), 'state.')
         print('Type `s` to swap states. Note that some commands are only available in one state.\n')
