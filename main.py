@@ -426,14 +426,15 @@ def train_one_epoch(epoch, params, classifier_state=None):
                         perturbed_output = clean_data, recon, mu, logvar
                         perturbed_loss = perturbed_loss + params['criterion'](perturbed_output, target)
 
-                if i % constants.CW_SPLITS == epoch % constants.CW_SPLITS:
-                    perturbed_data = adversary.attack_batch(data, target, classifier_state['model'],
-                                                            classifier_state['criterion'], attack_name='CW',
-                                                            device=classifier_state['device'])
-                    clean_data = data.clone()
-                    perturbed_data, recon, mu, logvar = params['model'](perturbed_data)
-                    perturbed_output = clean_data, recon, mu, logvar
-                    perturbed_loss = perturbed_loss + (params['criterion'](perturbed_output, target) * len(constants.ADV_VAE_EPSILONS))
+                # CW batch
+                # if i % constants.CW_SPLITS == epoch % constants.CW_SPLITS:
+                perturbed_data = adversary.attack_batch(data, target, classifier_state['model'],
+                                                        classifier_state['criterion'], attack_name='CW',
+                                                        device=classifier_state['device'])
+                clean_data = data.clone()
+                perturbed_data, recon, mu, logvar = params['model'](perturbed_data)
+                perturbed_output = clean_data, recon, mu, logvar
+                perturbed_loss = perturbed_loss + (params['criterion'](perturbed_output, target) * len(constants.ADV_VAE_EPSILONS))
                 
                 # Assume that we are not using CW, for if we do, we most certainly will not do four of them.
                 perturbed_loss = perturbed_loss / (len(constants.ADV_VAE_EPSILONS) * (len(constants.ADV_VAE_ATTACKS) + 1))
