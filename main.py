@@ -331,7 +331,7 @@ def perform_training(params):
         if params['evaluate']:
             # Evaluate on validation set
             acc1 = validate(params, save=True, adversarial=False)
-            if params['adversarial_train']:
+            if params['adversarial_train'] and not params['is_generator']:
                 # TODO: MAKE VALIDATE ACTUALLY SAVE PROPERLY FOR ADVERSARIAL VALIDATION
                 ad_acc1 = validate(params, save=False, adversarial=True, adversarial_attack='FGSM', 
                                    whitebox=True)
@@ -375,11 +375,17 @@ def train_one_epoch(epoch, params, classifier_state=None):
                                              prefix='Epoch: [{}]'.format(epoch))
     else:
         top1 = train_utils.AverageMeter('Acc@1', ':4.2f')
-        progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, losses,
-                                             top1, prefix='Epoch: [{}]'.format(epoch))
+        if params['adversarial_train']:
+            top1_adv = train_utils.AverageMeter('Adv@1', ':4.2f')
+            progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, losses,
+                                                 top1, top1_adv, prefix='Epoch: [{}]'.format(epoch))
+        else:
+            progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, losses,
+                                                 top1, prefix='Epoch: [{}]'.format(epoch))
 
-    if params['adversarial_train']:
-        top1_adv = train_utils.AverageMeter('Adv@1', ':4.2f')
+
+
+
 
     # Switch to train mode. Important for dropout and batchnorm.
     params['model'].train()
@@ -395,7 +401,7 @@ def train_one_epoch(epoch, params, classifier_state=None):
 
         # Generate and separately perform forward pass on adversarial examples
         if params['adversarial_train']:
-            if params['is_generator']:
+            if not params['is_generator']:
                 params['model'].eval()
                 perturbed_data = adversary.attack_batch(data, target, params['model'],
                                                     params['criterion'], attack_name='FGSM',
@@ -410,7 +416,7 @@ def train_one_epoch(epoch, params, classifier_state=None):
 
                 for epsilon in constants.ADV_VAE_EPSILONS:
                     for attack_name in constants.ADV_VAE_ATTACKS:
-                        # Get FGSM batch
+                        # Get perturbed batch
                         perturbed_data = adversary.attack_batch(data, target, classifier_state['model'],
                                                             classifier_state['criterion'], attack_name=attack_name,
                                                             device=classifier_state['device'], epsilon=epsilon)
@@ -442,7 +448,7 @@ def train_one_epoch(epoch, params, classifier_state=None):
             acc1 = accuracy(output, target)[0]
             top1.update(acc1[0], data.size(0))
 
-        if params['adversarial_train']:
+        if params['adversarial_train'] and not params['is_generator']:
             adv_acc1 = accuracy(perturbed_output, perturbed_target)[0]
             top1_adv.update(adv_acc1[0], perturbed_data.size(0))
 
