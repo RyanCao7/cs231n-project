@@ -170,7 +170,7 @@ def param_factory(is_generator=False):
     params['model'] = None
     params['load_workers'] = 4
     params['total_epochs'] = 90
-    params['cur_epoch'] = 0
+    params['cur_epoch'] = 1
     params['batch_size'] = 256
     params['learning_rate'] = 0.1
     params['momentum'] = 0.9
@@ -317,7 +317,7 @@ def perform_training(params):
         setup_cuda(classifier_state)
     
     # Training/val loop
-    for epoch in range(params['cur_epoch'] + 1, params['total_epochs'] + 1):
+    for epoch in range(params['cur_epoch'], params['total_epochs'] + 1):
         
         print('--- TRAINING: begin epoch', epoch, '---')
 
@@ -342,12 +342,16 @@ def perform_training(params):
                     params['best_ad_val_acc'] = max(ad_acc1, params['best_ad_val_acc'])
                 params['best_val_acc'] = max(acc1, params['best_val_acc'])
 
-        # Save checkpoint every 'save_every' epochs.
-        if epoch % params['save_every'] == 0:
-            train_utils.save_checkpoint(params, epoch)
-            
         # Update the current epoch
         params['cur_epoch'] += 1
+
+        # Save checkpoint every 'save_every' epochs.
+        # N.B. params['cur_epoch'] is always the epoch we would START
+        # training at. The epoch name in the save file is the number of
+        # epochs we have FINISHED training (in other words,
+        # params['cur_epoch'] == (named epoch) + 1).
+        if epoch % params['save_every'] == 0:
+            train_utils.save_checkpoint(params, epoch)
 
     if params['total_epochs'] % params['save_every'] != 0:
         train_utils.save_checkpoint(params, params['total_epochs'])
@@ -382,9 +386,6 @@ def train_one_epoch(epoch, params, classifier_state=None):
         else:
             progress = train_utils.ProgressMeter(len(params['train_dataloader']), batch_time, losses,
                                                  top1, prefix='Epoch: [{}]'.format(epoch))
-
-
-
 
 
     # Switch to train mode. Important for dropout and batchnorm.

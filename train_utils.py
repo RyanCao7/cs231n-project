@@ -293,17 +293,17 @@ def delete_future_checkpoints(params):
     '''
     path = 'models/' + model_type(params) + '/'
     print('Warning: training will delete all checkpoints past the current (' +
-                         str(params['cur_epoch'] + 1) + ') epoch:')
+                         str(params['cur_epoch']) + ') epoch:')
     to_be_deleted = []
     for checkpoint in glob.glob(path + params['run_name'] + '/*.pth.tar'):
         run_num = int(checkpoint[checkpoint.rfind('_') + 1 : checkpoint.find('~')])
-        if run_num > params['cur_epoch'] + 1:
+        if run_num > params['cur_epoch']:
             print('To be deleted:', checkpoint)
             to_be_deleted.append(checkpoint)
     if not get_yes_or_no('Continue?'):
         return False
     
-    print('Deleting all checkpoints past ' + str(params['cur_epoch'] + 1) + ' epoch...')
+    print('Deleting all checkpoints past ' + str(params['cur_epoch']) + ' epoch...')
     for checkpoint in to_be_deleted:
         print('deleting', checkpoint + '...')
         status = subprocess.call(['rm', checkpoint])
