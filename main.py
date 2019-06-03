@@ -425,8 +425,17 @@ def train_one_epoch(epoch, params, classifier_state=None):
                         perturbed_output = clean_data, recon, mu, logvar
                         perturbed_loss = perturbed_loss + params['criterion'](perturbed_output, target)
 
+                if i % constants.CW_SPLITS == epoch % constants.CW_SPLITS:
+                    perturbed_data = adversary.attack_batch(data, target, classifier_state['model'],
+                                                            classifier_state['criterion'], attack_name='CW',
+                                                            device=classifier_state['device'])
+                    clean_data = data.clone()
+                    perturbed_data, recon, mu, logvar = params['model'](perturbed_data)
+                    perturbed_output = clean_data, recon, mu, logvar
+                    perturbed_loss = perturbed_loss + (params['criterion'](perturbed_output, target) * len(constants.ADV_VAE_EPSILONS))
+                
                 # Assume that we are not using CW, for if we do, we most certainly will not do four of them.
-                perturbed_loss = perturbed_loss / (len(constants.ADV_VAE_EPSILONS) * len(constants.ADV_VAE_ATTACKS))
+                perturbed_loss = perturbed_loss / (len(constants.ADV_VAE_EPSILONS) * (len(constants.ADV_VAE_ATTACKS) + 1))
 
         # Compute output
         output = params['model'](data)
@@ -506,7 +515,7 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
     
     # Sets up training statistics to be logged to console (and possibly file -- TODO -- ?) output.
     extension = 'adversarial' if adversarial else 'non-adversarial'
-    print('\n--- BEGIN (' + extension + ') VALIDATION PASS ---')
+    print(color.PURPLE + '\n--- BEGIN (' + extension + ') VALIDATION PASS ---' + color.END)
     batch_time = train_utils.AverageMeter('Time', ':5.3f')
     losses = train_utils.AverageMeter('Loss', ':.4e')
     if params['is_generator']:
@@ -574,7 +583,7 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
         viz_utils.plot_accuracies(params)
         viz_utils.plot_losses(params)
         
-    print('--- END VALIDATION PASS ---\n')
+    print(color.PURPLE + '--- END VALIDATION PASS ---\n' + color.END)
     
     if not params['is_generator']:
         return acc1
@@ -597,20 +606,20 @@ def attack_validate(params):
     if train_utils.get_yes_or_no('Whitebox attack?'):
         print('Performing whitebox attack using current classifier (' + params['run_name'] + ').')
         for attack_name in constants.ATTACKS:
-            print('\n--- COMMENCING ATTACK:', attack_name, '---')
+            print(color.RED + '\n--- COMMENCING ATTACK:', attack_name, '---' + color.END)
             validate(params, save=False, adversarial=True, adversarial_attack=attack_name)
-            print('--- ENDING ATTACK ---')
+            print(color.RED + '--- ENDING ATTACK ---' + color.END)
     else:
         print('\nBlackbox attack. Please load an imitator model.')
         imitator_state = load_model(param_factory(False))
         setup_cuda(imitator_state) # Sends imitator network to GPU
         print('Performing blackbox attack on ' + params['run_name'] + ' using ' + imitator_state['run_name'] + ' as imitator.')
         for attack_name in constants.ATTACKS:
-            print('\n--- COMMENCING ATTACK:', attack_name, '---')
+            print(color.RED + '\n--- COMMENCING ATTACK:', attack_name, '---' + color.END)
             validate(params, save=False, adversarial=True, adversarial_attack=attack_name, 
                      whitebox=False, adversary_model=imitator_state['model'],
                      adversary_criterion=imitator_state['criterion'])
-            print('--- ENDING ATTACK ---')
+            print(color.RED + '--- ENDING ATTACK ---' + color.END)
     print()
 
     
