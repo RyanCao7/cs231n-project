@@ -257,7 +257,7 @@ def edit_state(params):
             change_var = change_var[:change_var.rfind(':')]
 
     # TODO: I don't know if this is entirely correct. Think about it!
-    train_utils.save_checkpoint(params, params['cur_epoch'])
+    train_utils.save_checkpoint(params, params['cur_epoch'] - 1)
     print()
 
 
