@@ -70,6 +70,10 @@ GENERATOR_CRITERIA = [
     'ReconKLD',
 ]
 
+# VAE Adversarial Training epsilons
+ADV_VAE_EPSILONS = [0.25, 0.3, 0.35, 0.4]
+ADV_VAE_ATTACKS = ['FGSM', 'RANDFGSM']
+
 # MNIST mean and std pulled from 
 # https://discuss.pytorch.org/t/normalization-in-the-mnist-example/457
 # CIFAR-10 mean and std pulled from 

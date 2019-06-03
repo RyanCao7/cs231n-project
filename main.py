@@ -309,6 +309,12 @@ def perform_training(params):
     setup_cuda(params)
     
     print('\n--- COMMENCE TRAINING ---\n')
+
+    classifier_state = None
+    if params['is_generator'] and params['adversarial_train']:
+        print('\nAdversarially training a VAE. Please load a classifier model.')
+        classifier_state = load_model(param_factory(False))
+        setup_cuda(classifier_state)
     
     # Training/val loop
     for epoch in range(params['cur_epoch'] + 1, params['total_epochs'] + 1):
@@ -319,7 +325,7 @@ def perform_training(params):
         adjust_learning_rate(epoch, params)
 
         # Train for one epoch
-        train_one_epoch(epoch, params)
+        train_one_epoch(epoch, params, classifier_state=classifier_state)
         print('--- TRAINING: end epoch', epoch, '---')
         
         if params['evaluate']:
@@ -350,7 +356,7 @@ def perform_training(params):
 
 # TODO: FACTOR OUT GENERAL TRAINING COMPONENT TO BETTER INCORPORATE
 # ADVERSARIAL TRAINING
-def train_one_epoch(epoch, params):
+def train_one_epoch(epoch, params, classifier_state=None):
     '''
     Trains model given in params['model'] for a single epoch.
     
@@ -389,27 +395,43 @@ def train_one_epoch(epoch, params):
 
         # Generate and separately perform forward pass on adversarial examples
         if params['adversarial_train']:
-            params['model'].eval()
-            perturbed_data = adversary.attack_batch(data, target, params['model'],
+            if params['is_generator']:
+                params['model'].eval()
+                perturbed_data = adversary.attack_batch(data, target, params['model'],
                                                     params['criterion'], attack_name='FGSM',
                                                     device=params['device'])
-            perturbed_target = target.clone()
-            params['model'].train()
-            perturbed_output = params['model'](perturbed_data)
+                perturbed_target = target.clone()
+                params['model'].train()
+                perturbed_output = params['model'](perturbed_data)
+            else:
+                # Setup
+                perturbed_loss = 0
+                classifier_state['model'].eval()
+
+                for epsilon in constants.ADV_VAE_EPSILONS:
+                    for attack_name in constants.ADV_VAE_ATTACKS:
+                        # Get FGSM batch
+                        perturbed_data = adversary.attack_batch(data, target, classifier_state['model'],
+                                                            classifier_state['criterion'], attack_name=attack_name,
+                                                            device=classifier_state['device'], epsilon=epsilon)
+                        clean_data = data.clone()
+                        perturbed_data, recon, mu, logvar = params['model'](perturbed_data)
+                        perturbed_output = clean_data, recon, mu, logvar
+                        perturbed_loss = perturbed_loss + params['criterion'](perturbed_output, target)
+
+                # Assume that we are not using CW, for if we do, we most certainly will not do four of them.
+                perturbed_loss = perturbed_loss / (len(constants.ADV_VAE_EPSILONS) * len(constants.ADV_VAE_ATTACKS))
 
         # Compute output
         output = params['model'](data)
         
-        # TODO: Not sure what this is doing...?
-        # if params['is_generator'] and params['adversarial_train']:
-        #     x, recon_x, mu, logvar = output
-        #     N = x.shape[0]
-        #     x = torch.cat([x[0 : N / 2, :, :, :], x[0 : N / 2, :, :, :].clone()], dim=0)
-        #     output = x, recon_x, mu, logvar
-            
         # Adversarial train uses slightly different criterion
         if params['adversarial_train']:
-            loss = params['alpha'] * params['criterion'](output, target) + \
+            if params['is_generator']:
+                loss = params['alpha'] * params['criterion'](output, target) + \
+                    (1 - params['alpha']) * perturbed_loss
+            else:
+                loss = params['alpha'] * params['criterion'](output, target) + \
                     (1 - params['alpha']) * params['criterion'](perturbed_output, perturbed_target)
         else:
             loss = params['criterion'](output, target)
