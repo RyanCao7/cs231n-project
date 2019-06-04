@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
+import random
 import data_utils
 import constants
 
@@ -387,3 +388,21 @@ class DAVAE(nn.Module):
         return (data - torch.mean(data, dim=0, keepdim=True)) / torch.std(data, dim=0, keepdim=True)
         
         
+class EnsembleDAVAE(nn.Module):
+    '''
+    Wrapper around an entire list of generator models,
+    plus a single classifier model. Idea inspired by
+    MagNet paper; during inference time, a random VAE
+    from the generator list is chosen to be the purifier.
+    '''
+    
+    def __init__(self, classifier, generator_list):
+        super(EnsembleDAVAE, self).__init__()
+        self.classifier = classifier
+        self.generator_list = generator_list
+        
+    def forward(self, x):
+        generator = random.choice(self.generator_list)
+        _, reconv_x, _, _ = generator(x)
+        reconv_x = reconv_x.reshape(-1, 1, 28, 28) # Unflattening for conv net
+        return self.classifier(reconv_x)

@@ -259,34 +259,6 @@ def edit_state(params):
     # TODO: I don't know if this is entirely correct. Think about it!
     train_utils.save_checkpoint(params, params['cur_epoch'] - 1)
     print()
-
-
-# TODO: Actually print useful stuff :P
-def print_state(params):
-    '''
-    Nicely formats and prints the currently loaded state.
-
-    Keyword arguments: params
-    > params (dict) -- currently loaded state dict.
-    '''
-    print('\n --- Loaded state --- \n')
-    print('Current state:', bolded(model_type(params)))
-    print('Model:', params['model'], '\n')
-    print('Optimizer:', params['optimizer'], '\n')
-    print('Device:', params['device'])
-    print('Epoch:', params['cur_epoch'])
-    print('Total epochs:', params['total_epochs'])
-    print('Batch size:', params['batch_size'])
-    if params['train_dataloader'] is not None:
-        print(params['train_dataloader'].dataset)
-        print('Total training set size:', params['batch_size'] * len(params['train_dataloader']))
-        print('Total val set size:', params['batch_size'] * len(params['val_dataloader']))
-        print('Total test set size:', params['batch_size'] * len(params['test_dataloader']))
-    print('Print every', params['print_frequency'], 'iterations.')
-    print('Save every', params['save_every'], 'epochs.')
-    print('Trained adversarially?', params['adversarial_train'])
-    print('Alpha?', params['alpha'])
-    print()
     
 
 def perform_training(params):
@@ -693,7 +665,122 @@ def defend(state_models):
     else:
         validate(defended_state, save=False, adversarial=False)
         
+
+def ensemble_dict_factory():
+    '''
+    Initialize ensemble DAVAE state dict.
+    ensemble_generators (list) -- list of nn.Module generators 
+        inside EnsembleDAVAE.
+    ensemble_gen_run_names (list) -- list of string run names for
+        generators inside EnsembleDAVAE.
+    ensemble_params (dict) -- params state dict copied from main
+        loaded ensemble classifier, with 'model' field being the
+        loaded EnsembleDAVAE.
+    '''
+    ensemble_dict = {
+        'ensemble_generators': [],
+        'ensemble_gen_run_names': [],
+        'ensemble_params': None,
+    }
+    return ensemble_dict
         
+        
+def load_ensemble(ensemble_dict):
+    '''
+    Allows user to load up an ensemble of generator models
+    to defend the single classifier model.
+    
+    Precondition: params['classifier'] is not None.
+    
+    Keyword arguments:
+    > ensemble_dict (dict) -- state dict wrapper for ensemble
+        models (basically contains a classifier params dict with
+        an EnsembleDAVAE rather than a vanilla classifier loaded
+        in, with auxiliary fields for pretty printing).
+    '''
+    generator_path = 'models/generator'
+    classifier_path = 'models/classifier'
+    all_generator_folders = glob.glob(generator_path + '/*')
+    all_classifier_folders = glob.glob(classifier_path + '/*')
+    if len(all_generator_folders) == 0:
+        print('No saved generator models! Please train at least one generator model.')
+        return
+    if len(all_generator_folders) == 0:
+        print('No saved classifier models! Please train at least one classifier model.')
+        return
+    
+    # Loadup ensemble classifier
+    print('First, please load up a classifier to defend.')
+    ensemble_dict['ensemble_params'] = load_model(param_factory(False))
+    classifier = ensemble_dict['ensemble_params']['model']
+    
+    # Loadup all ensemble generators
+    num_generators = train_utils.input_from_range(1, len(all_generator_folders), 'generators to ensemble')
+    for idx in range(1, num_generators + 1):
+        print('Loading', idx, '/', num_generators, 'generators.')
+        generator_state = load_model(param_factory(True))
+        ensemble_dict['ensemble_generators'].append(generator_state['model'])
+        ensemble_dict['ensemble_gen_run_names'].append(generator_state['run_name'])
+        
+    # Assembles EnsembleDAVAE! Place him/her directly into the ensemble_dict state params.
+    print('Creating ensemble DAVAE with the following generators...')
+    print(ensemble_dict['ensemble_gen_run_names'])
+    ensemble_dict['ensemble_params']['model'] = models.EnsembleDAVAE(classifier, ensemble_dict['ensemble_generators'])
+    setup_cuda(ensemble_dict['ensemble_params'])
+    print('Finished creating ensemble DAVAE!')
+    
+    return ensemble_dict
+
+
+def ensemble_defend(ensemble_dict):
+    '''
+    Takes in an ensemble dictionary and performs all
+    attacks on the EnsembleDAVAE within.
+    '''
+    if ensemble_dict['ensemble_params'] is None:
+        print('No ensemble model loaded! Type -el to load an ensemble model.')
+        return
+    attack_validate(ensemble_dict['ensemble_params'])
+
+
+def print_state(params, ensemble_dict):
+    '''
+    Nicely formats and prints the currently loaded state.
+
+    Keyword arguments: params, ensemble_dict
+    > params (dict) -- currently loaded state dict.
+    > ensemble_dict (dict) -- loaded ensemble DAVAE wrapper dict.
+    '''
+    print('\n --- Loaded state --- \n')
+    print('Current state:', bolded(model_type(params)))
+    print('Current run name:', params['run_name'])
+    print('Model:', params['model'], '\n')
+    print('Optimizer:', params['optimizer'], '\n')
+    print('Device:', params['device'])
+    print('Epoch:', params['cur_epoch'])
+    print('Total epochs:', params['total_epochs'])
+    print('Batch size:', params['batch_size'])
+    if params['train_dataloader'] is not None:
+        print(params['train_dataloader'].dataset)
+        print('Total training set size:', params['batch_size'] * len(params['train_dataloader']))
+        print('Total val set size:', params['batch_size'] * len(params['val_dataloader']))
+        print('Total test set size:', params['batch_size'] * len(params['test_dataloader']))
+    print('Print every', params['print_frequency'], 'iterations.')
+    print('Save every', params['save_every'], 'epochs.')
+    print('Trained adversarially?', params['adversarial_train'])
+    print('Alpha?', params['alpha'])
+    print()
+    
+    if ensemble_dict['ensemble_params'] is None:
+        print('Ensemble state: None')
+    else:
+        print('Ensemble defenders:')
+        for i, gen_name in enumerate(ensemble_dict['ensemble_gen_run_names']):
+            print(i, gen_name)
+        print('Ensemble classifier:')
+        print(ensemble_dict['ensemble_params']['run_name'])
+    print()
+    
 
 def print_models():
     '''
@@ -715,26 +802,29 @@ def print_help(params, param_number):
         respectively.
     '''
     print('List of commands: ')
-    print('-h: Help command. Prints this list of helpful commands!')
-    print('-q: Quit. Immediately terminates the program.')
-    print('-l: Load model. Loads a specific model/checkpoint into current program state.')
-    print('-n: New model. Creates new model from scratch.')
-    print('-p: Print. Prints the current program state (e.g. model, epoch, params, etc.)')
-    print('-t: Train. Trains the network using the current program state.')
-    print('-v: Validate. Runs the currently loaded network on the validation set.')
-    print('-e: Edit. Gives the option to edit the current state.')
-    print('-m: Models. Lists all saved models.')
-    print('-d: Defend. Runs the combined generator + classifier network on adversarial examples.')
-    print('-y: Sync. Syncs everything by pulling first from Box, then pushing everything. May be slow.')
+    print('-h (--help): Help command. Prints this list of helpful commands!')
+    print('-q (--quit): Quit. Immediately terminates the program.')
+    print('-s (--swap): Swap states. Swaps between classifier and generator state.')
+    print('-l (--load): Load model. Loads a specific model/checkpoint into current program state.')
+    print('-n (--new): New model. Creates new model from scratch.')
+    print('-p (--print): Print. Prints the current program state (e.g. model, epoch, params, etc.)')
+    print('-t (--train): Train. Trains the network using the current program state.')
+    print('-v (--validate): Validate. Runs the currently loaded network on the validation set.')
+    print('-e (--edit): Edit. Gives the option to edit the current state.')
+    print('-m (--models): Models. Lists all saved models.')
+    print('-d (--defend): Defend. Runs the combined generator + classifier network on adversarial examples.')
+    print('-y (--sync): Sync. Syncs everything by pulling first from Box, then pushing everything. May be slow.')
+    print('-el (--eload): Ensemble load. Loads an EnsembleDAVAE model.')
+    print('-ed (--edefend): Ensemble defend. Runs the loaded EnsembleDAVAE model on adversarial examples.')
     
     # Classifier state only
     if param_number == 0:
-        print('-a: Adversarial. Runs the currently loaded network on adversarial examples.')
-        print('-i: Visualize. Generates a sampled batch + its attacked counterpart.')
+        print('-a (--adversarial): Adversarial. Runs the currently loaded network on adversarial examples.')
+        print('-i (--visualize): Visualize. Generates a sampled batch + its attacked counterpart.')
         
     # Generator state only
     elif param_number == 1:
-        print('-g: Generate. Generate samples from the VAE.') # TODO: Make this more general
+        print('-g (--generate): Generate. Generate samples from the VAE.') # TODO: Make this more general
     else:
         raise Exception('Woah. How did you get here?')
 
@@ -747,6 +837,7 @@ def main():
     # (classifier, generator)
     state_params = [param_factory(False), param_factory(True)]
     param_number = 0 # Classifier -> 0 || Generator -> 1
+    ensemble_dict = ensemble_dict_factory() # For EnsembleDAVAE
     
     # Create local directories
     train_utils.initialize_dirs()
@@ -775,6 +866,10 @@ def main():
         elif user_input in ['-y', '--sync', 'y', 'sync']:
             box_utils.sync_download()
             box_utils.sync()
+        elif user_input in ['el', '--eload', 'el', 'eload']:
+            ensemble_dict = load_ensemble(ensemble_dict)
+        elif user_input in ['ed', '--edefend', 'ed', 'edefend']:
+            ensemble_defend(ensemble_dict)
         elif user_input in ['-v', '--validate', 'v', 'validate']:
             validate(params)
         elif user_input in ['-l', '--load', 'l', 'load']:
@@ -784,7 +879,7 @@ def main():
         elif user_input in ['-h', '--help', 'h', 'help'] or user_input.strip() == '':
             print_help(params, param_number)
         elif user_input in ['-p', '--print', 'p', 'print']:
-            print_state(params)
+            print_state(params, ensemble_dict)
         elif user_input in ['-a', '--adversarial', 'a', 'adversarial']:
             if not params['is_generator']:
                 attack_validate(params)
