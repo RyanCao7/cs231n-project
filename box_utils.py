@@ -7,7 +7,7 @@ import glob
 import threading
 import constants
 from boxsdk import Client, OAuth2
-from constants import CONFIG_FILE, CS231N_PROJECT_FOLDER, MODEL_FOLDER, SYNC_DIRECTORIES
+from constants import CONFIG_FILE, CS231N_PROJECT_FOLDER, MODEL_FOLDER, SYNC_DIRECTORIES, MAX_THREADS
 from datetime import datetime
 
 
@@ -62,6 +62,10 @@ def sync():
     '''
     client = get_client()
     print('Begin syncing items to Box...')
+    
+    # Limits number of threads which can be opened
+    connection_passes = threading.Semaphore(MAX_THREADS)
+    
     # Root Box directory
     root_folder = client.folder('0')
     
@@ -70,21 +74,11 @@ def sync():
     
     # Loops through local directories needing to be synced up
     for local_dir_name in SYNC_DIRECTORIES:
-        sync_helper(cs231n_folder, local_dir_name)
+        sync_helper(cs231n_folder, local_dir_name, connection_passes)
     print('Finished syncing items to Box!')
-
-
-def contains(root_items, name):
-    '''
-    Speeds up sync_helper by sending fewer requests.
-    '''
-    for thing in root_items:
-        if get_filename(thing.name) == get_filename(name):
-            return True, thing.name
-    return False, None
     
     
-def sync_helper(root, full_local_dir_name):
+def sync_helper(root, full_local_dir_name, connection_passes):
     '''
     Recursively copies over all things in local_dir_name to root.
     Precondition: Substring of full_local_dir_name after the final
@@ -100,7 +94,9 @@ def sync_helper(root, full_local_dir_name):
     all_workers = []
     for subsubpath in glob.glob(full_local_dir_name + '/*'):
         if os.path.isdir(subsubpath):
-            worker = threading.Thread(target=sync_helper, args=(subfolder, subsubpath))
+            # Limits number of threads we can open up
+            connection_passes.acquire()
+            worker = threading.Thread(target=sync_helper, args=(subfolder, subsubpath, connection_passes))
             all_workers.append(worker)
             worker.start()
         else:
@@ -120,7 +116,20 @@ def sync_helper(root, full_local_dir_name):
     # Wait for all child threads to finish
     for worker in all_workers:
         worker.join()
+        
+    # Releases another thread to start
+    connection_passes.release()
 
+    
+def contains(root_items, name):
+    '''
+    Speeds up sync_helper by sending fewer requests.
+    '''
+    for thing in root_items:
+        if get_filename(thing.name) == get_filename(name):
+            return True, thing.name
+    return False, None
+    
         
 def convert():
     '''
@@ -197,26 +206,19 @@ def sync_download():
     '''
     client = get_client()
     print('Begin syncing items from Box...')
+    
+    # Limits number of threads which can be opened
+    connection_passes = threading.Semaphore(MAX_THREADS)
+    
     # Root Box directory
     root_folder = client.folder('0')
     
     # Grabs the online cs231n folder
     cs231n_folder = locate_folder(root_folder, CS231N_PROJECT_FOLDER)
-    sync_download_helper('', cs231n_folder)
+    sync_download_helper('', cs231n_folder, connection_passes)
+
     
-    
-def should_local_update(local_folder, box_file_name):
-    '''
-    Given a local folder and box file name, checks to see whether
-    we should overwrite the local state copy.
-    '''
-    for full_path in glob.glob(local_folder + '*'):
-        if get_filename(box_file_name) == get_filename(get_item_name(full_path)):
-            return should_update(get_item_name(full_path), box_file_name)
-    return True
-    
-    
-def sync_download_helper(local_path, box_folder):
+def sync_download_helper(local_path, box_folder, connection_passes):
     '''
     Recursive helper function to download Box folder tree.
     '''
@@ -227,7 +229,10 @@ def sync_download_helper(local_path, box_folder):
             new_path = local_path + item.name + '/'
             if not os.path.isdir(new_path):
                 os.makedirs(new_path)
-            worker = threading.Thread(target=sync_download_helper, args=(new_path, item))
+                
+            # Limits number of threads we can download with
+            connection_passes.acquire()
+            worker = threading.Thread(target=sync_download_helper, args=(new_path, item, connection_passes))
             all_workers.append(worker)
             worker.start()
         else:
@@ -241,6 +246,20 @@ def sync_download_helper(local_path, box_folder):
     # Wait for all download threads to finish
     for worker in all_workers:
         worker.join()
+        
+    # Releases pass for more threads to be spawned
+    connection_passes.release()
+    
+    
+def should_local_update(local_folder, box_file_name):
+    '''
+    Given a local folder and box file name, checks to see whether
+    we should overwrite the local state copy.
+    '''
+    for full_path in glob.glob(local_folder + '*'):
+        if get_filename(box_file_name) == get_filename(get_item_name(full_path)):
+            return should_update(get_item_name(full_path), box_file_name)
+    return True
     
     
 def get_client():

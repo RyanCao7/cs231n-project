@@ -93,6 +93,7 @@ CONFIG_FILE = '.box_config.cfg'
 CS231N_PROJECT_FOLDER = 'CS231n'
 MODEL_FOLDER = 'models'
 SYNC_DIRECTORIES = ['models', 'visuals']
+MAX_THREADS = 16
 
 
 # Standard datetime format
