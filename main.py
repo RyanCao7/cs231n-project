@@ -676,11 +676,14 @@ def ensemble_dict_factory():
     ensemble_params (dict) -- params state dict copied from main
         loaded ensemble classifier, with 'model' field being the
         loaded EnsembleDAVAE.
+    init (bool) -- whether the ensemble_dict has been initialized
+        using -eload.
     '''
     ensemble_dict = {
         'ensemble_generators': [],
         'ensemble_gen_run_names': [],
         'ensemble_params': None,
+        'init': False,
     }
     return ensemble_dict
         
@@ -710,23 +713,28 @@ def load_ensemble(ensemble_dict):
         return
     
     # Loadup ensemble classifier
-    print('First, please load up a classifier to defend.')
-    ensemble_dict['ensemble_params'] = load_model(param_factory(False))
+    if not ensemble_dict['init'] or train_utils.get_yes_or_no('Load up a different classifier?'):
+        print('Please load up a classifier to defend.')
+        ensemble_dict['ensemble_params'] = load_model(param_factory(False))
+        setup_cuda(ensemble_dict['ensemble_params'])
     classifier = ensemble_dict['ensemble_params']['model']
     
     # Loadup all ensemble generators
-    num_generators = train_utils.input_from_range(1, len(all_generator_folders), 'generators to ensemble')
-    for idx in range(1, num_generators + 1):
-        print('Loading', idx, '/', num_generators, 'generators.')
-        generator_state = load_model(param_factory(True))
-        ensemble_dict['ensemble_generators'].append(generator_state['model'])
-        ensemble_dict['ensemble_gen_run_names'].append(generator_state['run_name'])
+    if not ensemble_dict['init'] or train_utils.get_yes_or_no('Load up a different generator list?'):
+        num_generators = train_utils.input_from_range(1, len(all_generator_folders), 'generators to ensemble')
+        for idx in range(1, num_generators + 1):
+            print('Loading', idx, '/', num_generators, 'generators.')
+            generator_state = load_model(param_factory(True))
+            setup_cuda(generator_state)
+            ensemble_dict['ensemble_generators'].append(generator_state['model'])
+            ensemble_dict['ensemble_gen_run_names'].append(generator_state['run_name'])
         
     # Assembles EnsembleDAVAE! Place him/her directly into the ensemble_dict state params.
     print('Creating ensemble DAVAE with the following generators...')
     print(ensemble_dict['ensemble_gen_run_names'])
     ensemble_dict['ensemble_params']['model'] = models.EnsembleDAVAE(classifier, ensemble_dict['ensemble_generators'])
     setup_cuda(ensemble_dict['ensemble_params'])
+    ensemble_dict['init'] = True
     print('Finished creating ensemble DAVAE!')
     
     return ensemble_dict
@@ -737,7 +745,7 @@ def ensemble_defend(ensemble_dict):
     Takes in an ensemble dictionary and performs all
     attacks on the EnsembleDAVAE within.
     '''
-    if ensemble_dict['ensemble_params'] is None:
+    if not ensemble_dict['init']:
         print('No ensemble model loaded! Type -el to load an ensemble model.')
         return
     attack_validate(ensemble_dict['ensemble_params'])
@@ -866,9 +874,9 @@ def main():
         elif user_input in ['-y', '--sync', 'y', 'sync']:
             box_utils.sync_download()
             box_utils.sync()
-        elif user_input in ['el', '--eload', 'el', 'eload']:
+        elif user_input in ['-el', '--eload', 'el', 'eload']:
             ensemble_dict = load_ensemble(ensemble_dict)
-        elif user_input in ['ed', '--edefend', 'ed', 'edefend']:
+        elif user_input in ['-ed', '--edefend', 'ed', 'edefend']:
             ensemble_defend(ensemble_dict)
         elif user_input in ['-v', '--validate', 'v', 'validate']:
             validate(params)
