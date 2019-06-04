@@ -57,7 +57,7 @@ def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM',
                            max_pix)
     elif attack_name == 'RAND_FGSM':
         noisy_batch = batch + alpha * torch.sign(torch.randn_like(batch))
-        perturbed_batch = (noisy_batch,
+        perturbed_batch = fgsm_attack(noisy_batch,
                            epsilon - alpha,
                            get_batch_grad(noisy_batch, model, loss_fcn, device, target=None),
                            min_pix,

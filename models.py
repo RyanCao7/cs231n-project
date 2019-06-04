@@ -416,5 +416,4 @@ class EnsembleDAVAE(nn.Module):
         self.deterministic = flag
         if flag:
             self.index = random.choice(range(0, len(self.generator_list)))
-        print('EnsembleDAVAE is now', 'DETERMINISTIC' if flag else 'NON-DETERMINISTIC.')
     
