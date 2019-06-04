@@ -400,9 +400,21 @@ class EnsembleDAVAE(nn.Module):
         super(EnsembleDAVAE, self).__init__()
         self.classifier = classifier
         self.generator_list = generator_list
+        self.deterministic = False
+        self.index = -1
         
     def forward(self, x):
-        generator = random.choice(self.generator_list)
+        if self.deterministic:
+            generator = self.generator_list[self.index]
+        else:
+            generator = random.choice(self.generator_list)
         _, reconv_x, _, _ = generator(x)
         reconv_x = reconv_x.reshape(-1, 1, 28, 28) # Unflattening for conv net
         return self.classifier(reconv_x)
+    
+    def set_deterministic(self, flag):
+        self.deterministic = flag
+        if flag:
+            self.index = random.choice(range(0, len(self.generator_list)))
+        print('EnsembleDAVAE is now', 'DETERMINISTIC' if flag else 'NON-DETERMINISTIC.')
+    

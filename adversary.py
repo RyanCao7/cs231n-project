@@ -3,6 +3,7 @@ import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import models
 
 
 def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM', 
@@ -39,30 +40,40 @@ def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM',
     > adversarial_batch (tensor) -- adversarial version of input batch.
     '''
 
+    # Move to GPU and setup model stuff. EnsembleDAVAE must
+    # generate attacks in deterministic mode.
     batch = batch.to(device)
     target = target.to(device)
     model.eval()
+    if type(model) == models.EnsembleDAVAE:
+        model.set_deterministic(True)
 
     # We are doing untargeted, so we are going to ignore the 'target' classes
     if attack_name == 'FGSM':
-        return fgsm_attack(batch, 
+        perturbed_batch = fgsm_attack(batch, 
                            epsilon, 
                            get_batch_grad(batch, model, loss_fcn, device, target=None),
                            min_pix, 
                            max_pix)
     elif attack_name == 'RAND_FGSM':
         noisy_batch = batch + alpha * torch.sign(torch.randn_like(batch))
-        return fgsm_attack(noisy_batch,
+        perturbed_batch = (noisy_batch,
                            epsilon - alpha,
                            get_batch_grad(noisy_batch, model, loss_fcn, device, target=None),
                            min_pix,
                            max_pix)
     elif attack_name == 'CW':
 #         return cw_attack(batch, target, model, device, lr, num_iter, c, min_pix, max_pix)
-        return reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c)
+        perturbed_batch = reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c)
     else:
         raise Exception('Error: attack_name must be one of {\'FGSM\', \'RAND_FGSM\', '
                         '\'CW\'}.')
+        
+    # Switch back to non-deterministic mode.
+    if type(model) == models.EnsembleDAVAE:
+        model.set_deterministic(False)
+        
+    return perturbed_batch
 
     
 def fgsm_attack(batch, epsilon, batch_grad, min_pix, max_pix):
