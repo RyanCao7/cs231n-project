@@ -721,6 +721,8 @@ def load_ensemble(ensemble_dict):
     
     # Loadup all ensemble generators
     if not ensemble_dict['init'] or train_utils.get_yes_or_no('Load up a different generator list?'):
+        ensemble_dict['ensemble_generators'] = []
+        ensemble_dict['ensemble_gen_run_names'] = []
         num_generators = train_utils.input_from_range(1, len(all_generator_folders), 'generators to ensemble')
         for idx in range(1, num_generators + 1):
             print('Loading', idx, '/', num_generators, 'generators.')
