@@ -708,7 +708,7 @@ def load_ensemble(ensemble_dict):
     if len(all_generator_folders) == 0:
         print('No saved generator models! Please train at least one generator model.')
         return
-    if len(all_generator_folders) == 0:
+    if len(all_classifier_folders) == 0:
         print('No saved classifier models! Please train at least one classifier model.')
         return
     
@@ -915,7 +915,8 @@ def main():
                 print('Can\'t sample - model is not generative!')
         elif user_input in ['-i', '--visualize', 'i', 'visualize']: #TODO come up with better naming scheme
             # TODO: ensure we have a classifier
-            viz_utils.visualize_attack(state_params[0], 'visuals/' + params['run_name'] + '_FGSM_' + state_params[0]['run_name'])
+            # viz_utils.visualize_attack(state_params[0], 'visuals/' + params['run_name'] + '_FGSM_' + state_params[0]['run_name'])
+            viz_utils.visualize_random_attacks(state_params[0], state_params[1]['model'], 'visuals/' + params['run_name'] + '_Attacks')
         elif user_input in ['-d', '--defend', 'd', 'defend']:
             if state_params[1]['model'] is None:
                 print('Can\'t defend - no generative model loaded.')

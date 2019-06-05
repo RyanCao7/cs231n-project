@@ -8,7 +8,9 @@ import constants
 import train_utils
 import box_utils
 import threading
-
+import random
+import numpy as np
+from adversary import attack_batch
 
 def save_and_upload_image(tensor, save_path, **kwargs):
     '''
@@ -110,7 +112,7 @@ def compare_VAE(batch, generator, epoch, path):
         os.makedirs(path)
     save_path = path + '/reconstruction_' + str(epoch) + '~' + constants.get_cur_time() + '.png'
     with torch.no_grad():
-        n = min(batch.size(0), 8)
+        n = min(batch.size(0), MAX_IMG)
         _, recon_batch, _, _ = generator(batch)
         comparison = torch.cat([batch[:n],
                                recon_batch.view(batch.size(0), 1, 28, 28)[:n]])
@@ -155,3 +157,18 @@ def visualize_attack(params, path):
     save_and_upload_image(data.cpu(), path + '_regular_norm~' + constants.get_cur_time() + '.png', normalize=True)
     save_and_upload_image(perturbed_data.cpu(), path + '_attack_norm~' + constants.get_cur_time() + '.png', normalize=True)
     print('Finished visualizing!')
+
+def visualize_random_attacks(params, generator, path):
+    random_idx = int(np.random.random() * len(params['val_dataloader']))
+    for i, (data, target) in enumerate(params['val_dataloader']):
+        if i == random_idx:
+            data = data.to(params['device'])
+            target = target.to(params['device'])
+            break
+
+    compare_VAE(data, generator, 'clean', path)
+
+    for attack_name in constants.ATTACKS:
+        compare_VAE(attack_batch(data, target, params['model'], params['criterion'],
+                                 attack_name=attack_name, device=params['device']),
+                    generator, attack_name, path)
