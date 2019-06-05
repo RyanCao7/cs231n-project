@@ -752,6 +752,16 @@ def ensemble_defend(ensemble_dict):
         return
     attack_validate(ensemble_dict['ensemble_params'])
 
+def ensemble_validate(ensemble_dict):
+    '''
+    Takes in an ensemble dictionary and performs all
+    attacks on the EnsembleDAVAE within.
+    '''
+    if not ensemble_dict['init']:
+        print('No ensemble model loaded! Type -el to load an ensemble model.')
+        return
+    validate(ensemble_dict['ensemble_params'], save=False, adversarial=False)
+
 
 def print_state(params, ensemble_dict):
     '''
@@ -880,6 +890,8 @@ def main():
             ensemble_dict = load_ensemble(ensemble_dict)
         elif user_input in ['-ed', '--edefend', 'ed', 'edefend']:
             ensemble_defend(ensemble_dict)
+        elif user_input in ['-ev', '--evalidate', 'ev', 'evalidate']:
+            ensemble_validate(ensemble_dict)
         elif user_input in ['-v', '--validate', 'v', 'validate']:
             validate(params)
         elif user_input in ['-l', '--load', 'l', 'load']:
