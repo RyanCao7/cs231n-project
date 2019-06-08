@@ -241,12 +241,14 @@ def reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c):
         delta = w_to_delta(w, batch)
 
         # Compute cw minimization objective (L2)
-        perturbation_term = torch.sqrt(torch.sum(delta ** 2))
+        perturbation_term = torch.sum(delta ** 2)
         objective = perturbation_term + c * cw_objective(model, batch, delta, target)
         
         # Backpropagate
-#        if w.grad is not None:
-#            w.grad.data.zero_()
+        #if w.grad is not None:
+            #w.grad.data.zero_()
+
+        model.zero_grad()
         adam.zero_grad()
         objective.backward()
         
@@ -277,7 +279,9 @@ def cw_objective(model, batch, perturbation, target):
     scores = model(batch + perturbation)
     N, C = scores.shape
     
-    # Convert target to one-hot vectors
+    # Convert target to one-hot vectors.
+    # Implementation influenced by 
+    # https://github.com/rwightman/pytorch-nips2017-attack-example/blob/master/attacks/attack_carlini_wagner_l2.py
     one_hot_target = torch.zeros_like(scores)
     one_hot_target.requires_grad = False
     one_hot_target[torch.arange(N), target] = 1.0
@@ -288,5 +292,5 @@ def cw_objective(model, batch, perturbation, target):
     # Get the maximum of the other classes
     other_max = torch.max((1.0 - one_hot_target) * scores - 1000000.0 * one_hot_target, 1)[0]
 
-    loss = torch.sum(torch.clamp(true_scores - max_scores, max=0))
+    loss = torch.mean(torch.clamp(true_scores - other_max, max=0))
     return loss
