@@ -239,15 +239,15 @@ def reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c):
         
         # Get raw logits from model
         delta = w_to_delta(w, batch)
-        logits = model(batch + delta)
 
         # Compute cw minimization objective (L2)
         perturbation_term = torch.sqrt(torch.sum(delta ** 2))
         objective = perturbation_term + c * cw_objective(model, batch, delta, target)
         
         # Backpropagate
-        if w.grad is not None:
-            w.grad.data.zero_()
+#        if w.grad is not None:
+#            w.grad.data.zero_()
+        adam.zero_grad()
         objective.backward()
         
         # Backpropagate
@@ -277,13 +277,16 @@ def cw_objective(model, batch, perturbation, target):
     scores = model(batch + perturbation)
     N, C = scores.shape
     
-    # Reshape into 1-D
-    true_scores = scores.gather(1, target.view(-1, 1)).squeeze()
-    
-    # Prevent re-assignment of scores
-    scores_copy = scores.detach().clone()
-    scores_copy[torch.arange(N), target] = torch.min(scores, 1)[0]
-    max_scores = torch.max(scores_copy, 1)[0]
+    # Convert target to one-hot vectors
+    one_hot_target = torch.zeros_like(scores)
+    one_hot_target.requires_grad = False
+    one_hot_target[torch.arange(N), target] = 1.0
+
+    # Get true scores
+    true_scores = torch.sum(scores * one_hot_target, 1)
+
+    # Get the maximum of the other classes
+    other_max = torch.max((1.0 - one_hot_target) * scores - 1000000.0 * one_hot_target, 1)[0]
 
     loss = torch.sum(torch.clamp(true_scores - max_scores, max=0))
     return loss
