@@ -64,6 +64,7 @@ def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM',
                            max_pix)
     elif attack_name == 'CW':
 #         return cw_attack(batch, target, model, device, lr, num_iter, c, min_pix, max_pix)
+        # _, target = torch.max(model(batch), 1)
         perturbed_batch = reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c)
     else:
         raise Exception('Error: attack_name must be one of {\'FGSM\', \'RAND_FGSM\', '
@@ -163,6 +164,7 @@ def cw_attack(batch, target, model, device, lr, num_iter, c,
         # Compute loss
         t_loss = torch.sum(torch.pow(temp_perturbation, 2))
         loss = t_loss + c * cw_objective(model, batch, temp_perturbation, target)
+        # print(iter, t_loss.data, loss.data)
 
         # Perform backward pass
         model.zero_grad() # I don't think we need this, since the model is in eval() mode... right???
@@ -200,6 +202,9 @@ def reformulated_cw_attack(batch, target, model, device, lr, num_iter, c):
     # ~N(0, 1) - Gaussian with \mu = 0; \sigma = 1.
     # No grad needed - will do manual updates (TODO: is this slow?)
     w = torch.randn_like(batch)
+    print(0)
+    print(w[0])
+    print((w_to_delta(w, batch) + batch)[0])
     
     for i in range(num_iter):
         # Create detached copy of w to backprop through
@@ -219,6 +224,10 @@ def reformulated_cw_attack(batch, target, model, device, lr, num_iter, c):
         # Manually perform gradient descent
         with torch.no_grad():
             w -= lr * temp_w.grad
+
+        print(0)
+        print(w[0])
+        print((w_to_delta(w, batch) + batch)[0])
             
     return (batch + w_to_delta(w, batch)).detach()
     
@@ -232,10 +241,15 @@ def reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c):
     batch.requires_grad = False
     
     # ~N(0, 1) - Gaussian with \mu = 0; \sigma = 1.
-    w = torch.randn_like(batch, requires_grad=True)
-    adam = optim.Adam([w], lr=lr)
+    w = torch.zeros_like(batch, requires_grad=True)
+
+    # print(0)
+    #print(w[1])
+    # print((w_to_delta(w, batch) + batch)[1])
+
     
     for i in range(num_iter):
+        adam = optim.Adam([w], lr=lr)
         
         # Get raw logits from model
         delta = w_to_delta(w, batch)
@@ -243,6 +257,7 @@ def reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c):
         # Compute cw minimization objective (L2)
         perturbation_term = torch.sum(delta ** 2)
         objective = perturbation_term + c * cw_objective(model, batch, delta, target)
+        print(i, perturbation_term, objective)
         
         # Backpropagate
         #if w.grad is not None:
@@ -254,6 +269,12 @@ def reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c):
         
         # Backpropagate
         adam.step()
+        
+        #print(i)
+        #print(objective)
+        #print(w[1])
+        #print((w_to_delta(w, batch) + batch)[1])
+        
             
     return (batch + w_to_delta(w, batch)).detach()
     
@@ -292,5 +313,5 @@ def cw_objective(model, batch, perturbation, target):
     # Get the maximum of the other classes
     other_max = torch.max((1.0 - one_hot_target) * scores - 1000000.0 * one_hot_target, 1)[0]
 
-    loss = torch.mean(torch.clamp(true_scores - other_max, max=0))
+    loss = torch.sum(torch.clamp(true_scores - other_max, min=0))
     return loss
