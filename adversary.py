@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import models
+import advertorch_cw
 
 
 def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM', 
@@ -65,7 +66,9 @@ def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM',
     elif attack_name == 'CW':
 #         return cw_attack(batch, target, model, device, lr, num_iter, c, min_pix, max_pix)
         # _, target = torch.max(model(batch), 1)
-        perturbed_batch = reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c)
+#         perturbed_batch = reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c)
+#         perturbed_batch = reformulated_cw_attack(batch, target, model, device, lr, num_iter, c)
+        return advertorch_cw_attack(batch, target, model, device, lr, num_iter, c)
     else:
         raise Exception('Error: attack_name must be one of {\'FGSM\', \'RAND_FGSM\', '
                         '\'CW\'}.')
@@ -153,6 +156,11 @@ def cw_attack(batch, target, model, device, lr, num_iter, c,
     Return value: cw_batch
     > cw_batch (tensor) -- The adversarial batch generated.
     '''
+    
+    # Try different lrs for stability
+    lr = 0.1
+    num_iter = 1000
+    
     # Initalize perturbation randomly
     perturbation = torch.randn_like(batch, requires_grad=True)
 
@@ -163,9 +171,11 @@ def cw_attack(batch, target, model, device, lr, num_iter, c,
         
         # Compute loss
         t_loss = torch.sum(torch.pow(temp_perturbation, 2))
-        loss = t_loss + c * cw_objective(model, batch, temp_perturbation, target)
-        # print(iter, t_loss.data, loss.data)
-
+        cw_objective_loss = cw_objective(model, batch, temp_perturbation, target)
+        loss = t_loss + c * cw_objective_loss
+#         print('loss:', loss.item())
+#         print(iter, t_loss.data, loss.data)
+        
         # Perform backward pass
         model.zero_grad() # I don't think we need this, since the model is in eval() mode... right???
         loss.backward()
@@ -174,6 +184,8 @@ def cw_attack(batch, target, model, device, lr, num_iter, c,
         with torch.no_grad():
             perturbation -= lr * temp_perturbation.grad
             perturbation = torch.clamp(batch + perturbation, min_pix, max_pix) - batch
+            
+        cur_iter += 1
 
     # Get perturbed batch
     with torch.no_grad():
@@ -196,22 +208,29 @@ def reformulated_cw_attack(batch, target, model, device, lr, num_iter, c):
     of CW attack paper for more details!
     '''
     
+    # Try different learning rates for stability
+    lr = 0.01
+    
     # TODO: Perhaps this will be slightly more efficient...?
     batch.requires_grad = False
     
     # ~N(0, 1) - Gaussian with \mu = 0; \sigma = 1.
     # No grad needed - will do manual updates (TODO: is this slow?)
-    w = torch.randn_like(batch)
-    print(0)
-    print(w[0])
-    print((w_to_delta(w, batch) + batch)[0])
+    w = torch.randn_like(batch) / 1000.
+    print('presumed d sample:', w[0][0][0])
+    w = atanh(2 * (w + batch) - 1)
+    print('intial w sample:', w[0][0][0])
+    print('actual d sample:', w_to_delta(w, batch)[0][0][0])
+#     print('initial perturbed batch sample:', (w_to_delta(w, batch) + batch)[0][0][0])
     
     for i in range(num_iter):
+        print('\nIteration', i)
         # Create detached copy of w to backprop through
         temp_w = w.detach().clone().requires_grad_()
         
         # Get raw logits from model
         delta = w_to_delta(temp_w, batch)
+#         print('Delta sample:', delta[0][0][0])
         logits = model(batch + delta)
 
         # Compute cw minimization objective (L2)
@@ -222,12 +241,13 @@ def reformulated_cw_attack(batch, target, model, device, lr, num_iter, c):
         objective.backward()
         
         # Manually perform gradient descent
+#         print('Batch sample', (w_to_delta(w, batch) + batch)[0][0][0])
         with torch.no_grad():
+#             print('temp_w.grad:', torch.sum(temp_w.grad ** 2))
             w -= lr * temp_w.grad
 
-        print(0)
-        print(w[0])
-        print((w_to_delta(w, batch) + batch)[0])
+#         print('w[0]', torch.sum(w[0] ** 2))
+#         print(torch.sum((w_to_delta(w, batch) + batch)[0] ** 2))
             
     return (batch + w_to_delta(w, batch)).detach()
     
@@ -307,11 +327,37 @@ def cw_objective(model, batch, perturbation, target):
     one_hot_target.requires_grad = False
     one_hot_target[torch.arange(N), target] = 1.0
 
-    # Get true scores
+    # Get true scores (can be in range (-\infty, \infty))
     true_scores = torch.sum(scores * one_hot_target, 1)
 
     # Get the maximum of the other classes
-    other_max = torch.max((1.0 - one_hot_target) * scores - 1000000.0 * one_hot_target, 1)[0]
-
+#     other_max = torch.max((1.0 - one_hot_target) * scores - 1000000.0 * one_hot_target, 1)[0]
+    masked_scores = (1.0 - one_hot_target) * scores
+    
+    # Picks out rows
+    temp = masked_scores[torch.nonzero(masked_scores)[:, 0]]
+    # Picks out right elems from rows (every row should have one thing picked out)
+    temp = temp[np.arange(temp.shape[0]), torch.nonzero(masked_scores)[:, 1]].reshape((-1, C - 1))
+    other_max = torch.max(temp, 1)[0]
+#     print('diff:', torch.clamp(true_scores - other_max, min=0))
     loss = torch.sum(torch.clamp(true_scores - other_max, min=0))
+#     print('loss:', loss.item())
     return loss
+
+
+def advertorch_cw_attack(batch, target, model, device, lr, num_iter, c):
+    
+    # As suggested by CW paper on page (...? Maybe it's on the Defense-GAN paper?)
+    num_iter = 1000
+    lr = 0.1
+    
+    # Constructs an instance of an Advertorch CW attack object (HARD-CODED 10 CLASSES)
+    # Using 20, as suggested in page 15 of CW paper.
+    # Using the suggested value of c (100) as from Defense-GAN, with NO binary search (for speedup)
+    cw_attack_obj = advertorch_cw.CarliniWagnerL2Attack(predict=model, num_classes=10,
+                                                        max_iterations=num_iter,
+                                                        confidence=0,
+                                                        binary_search_steps=1,
+                                                        initial_const=100,
+                                                        learning_rate=lr)
+    return cw_attack_obj.perturb(batch)
