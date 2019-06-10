@@ -378,7 +378,7 @@ def train_one_epoch(epoch, params, classifier_state=None):
                 params['model'].eval()
                 perturbed_data = adversary.attack_batch(data, target, params['model'],
                                                     params['criterion'], attack_name='FGSM',
-                                                    device=params['device'])
+                                                    device=params['device'], lr=10, c=100.0, k=0, num_iter=100)
                 perturbed_target = target.clone()
                 params['model'].train()
                 perturbed_output = params['model'](perturbed_data)
@@ -392,7 +392,9 @@ def train_one_epoch(epoch, params, classifier_state=None):
                         # Get perturbed batch
                         perturbed_data = adversary.attack_batch(data, target, classifier_state['model'],
                                                             classifier_state['criterion'], attack_name=attack_name,
-                                                            device=classifier_state['device'], epsilon=epsilon)
+                                                            device=classifier_state['device'], epsilon=epsilon, 
+                                                            lr=10, c=100.0, k=0, num_iter=100)
+
                         clean_data = data.clone()
                         perturbed_data, recon, mu, logvar = params['model'](perturbed_data)
                         perturbed_output = clean_data, recon, mu, logvar
@@ -402,7 +404,8 @@ def train_one_epoch(epoch, params, classifier_state=None):
                 # if i % constants.CW_SPLITS == epoch % constants.CW_SPLITS:
                 perturbed_data = adversary.attack_batch(data, target, classifier_state['model'],
                                                         classifier_state['criterion'], attack_name='CW',
-                                                        device=classifier_state['device'])
+                                                        device=classifier_state['device'], lr=10, c=100.0, k=0, num_iter=100)
+
                 clean_data = data.clone()
                 perturbed_data, recon, mu, logvar = params['model'](perturbed_data)
                 perturbed_output = clean_data, recon, mu, logvar
@@ -517,11 +520,11 @@ def validate(params, save=False, adversarial=False, adversarial_attack=None,
             if whitebox:
                 data = adversary.attack_batch(data, target, params['model'], 
                     params['criterion'], attack_name=adversarial_attack,
-                    device=params['device'], epsilon=0.3, alpha=0.05)
+                    device=params['device'], epsilon=0.3, alpha=0.05, lr=10, c=100.0, k=0, num_iter=100)
             else:
                 data = adversary.attack_batch(data, target, adversary_model, 
                     adversary_criterion, attack_name=adversarial_attack,
-                    device=params['device'], epsilon=0.3, alpha=0.05)
+                    device=params['device'], epsilon=0.3, alpha=0.05, lr=10, c=100.0, k=0, num_iter=100)
                 
         with torch.no_grad():
 
@@ -581,7 +584,10 @@ def attack_validate(params):
         print('Performing whitebox attack using current classifier (' + params['run_name'] + ').')
         for attack_name in constants.ATTACKS:
             print(color.RED + '\n--- COMMENCING ATTACK:', attack_name, '---' + color.END)
+            start = time.time()
             validate(params, save=False, adversarial=True, adversarial_attack=attack_name)
+            end = time.time()
+            print(color.RED + f'Time Elapsed - {int((end-start) // 60):02d}:{int((end-start) % 60):02d}' + color.END)
             print(color.RED + '--- ENDING ATTACK ---' + color.END)
     else:
         print('\nBlackbox attack. Please load an imitator model.')
@@ -590,9 +596,12 @@ def attack_validate(params):
         print('Performing blackbox attack on ' + params['run_name'] + ' using ' + imitator_state['run_name'] + ' as imitator.')
         for attack_name in constants.ATTACKS:
             print(color.RED + '\n--- COMMENCING ATTACK:', attack_name, '---' + color.END)
+            start = time.time()
             validate(params, save=False, adversarial=True, adversarial_attack=attack_name, 
                      whitebox=False, adversary_model=imitator_state['model'],
                      adversary_criterion=imitator_state['criterion'])
+            end = time.time()
+            print(color.RED + f'Time Elapsed - {int((end-start) // 60):02d}:{int((end-start) % 60):02d}' + color.END)
             print(color.RED + '--- ENDING ATTACK ---' + color.END)
     print()
 

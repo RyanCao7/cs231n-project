@@ -9,7 +9,7 @@ import advertorch_cw
 
 def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM', 
                  device=torch.device('cpu'), epsilon=0.3, alpha=0.05,
-                 lr=10.0, num_iter=100, c=100.0, min_pix=0, max_pix=1):
+                 lr=10.0, num_iter=100, c=100.0, k=0, min_pix=0, max_pix=1):
     '''
     Generated adversarial versions of a batch for a given attack.
     
@@ -32,6 +32,8 @@ def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM',
         taken from Defense GAN paper.
     > c (float) -- Weight constant for CW objective function. Default value
         taken from Defense GAN paper.
+    > k (float) -- Kappa confidence for CW attack. Default value taken from
+        Defense GAN paper.
     > min_pix (float) -- Minimum value that can occur in an image. Default value
         assumes no normalization has taken place.
     > max_pix (float) -- Maximum value that can occur in an image. Default value
@@ -68,7 +70,7 @@ def attack_batch(batch, target, model, loss_fcn, attack_name='FGSM',
         # _, target = torch.max(model(batch), 1)
 #         perturbed_batch = reformulated_cw_attack_adam(batch, target, model, device, lr, num_iter, c)
 #         perturbed_batch = reformulated_cw_attack(batch, target, model, device, lr, num_iter, c)
-        return advertorch_cw_attack(batch, target, model, device, lr, num_iter, c)
+        return advertorch_cw_attack(batch, target, model, device, lr, num_iter, c, k)
     else:
         raise Exception('Error: attack_name must be one of {\'FGSM\', \'RAND_FGSM\', '
                         '\'CW\'}.')
@@ -345,18 +347,18 @@ def cw_objective(model, batch, perturbation, target):
     return loss
 
 
-def advertorch_cw_attack(batch, target, model, device, lr, num_iter, c):
+def advertorch_cw_attack(batch, target, model, device, lr, num_iter, c, k):
     
     # As suggested by CW paper on page (...? Maybe it's on the Defense-GAN paper?)
-    num_iter = 1000
-    lr = 0.1
+    # num_iter = 1000
+    # lr = 0.1
     
     # Constructs an instance of an Advertorch CW attack object (HARD-CODED 10 CLASSES)
     # Using 20, as suggested in page 15 of CW paper.
     # Using the suggested value of c (100) as from Defense-GAN, with NO binary search (for speedup)
     cw_attack_obj = advertorch_cw.CarliniWagnerL2Attack(predict=model, num_classes=10,
                                                         max_iterations=num_iter,
-                                                        confidence=0,
+                                                        confidence=k,
                                                         binary_search_steps=1,
                                                         initial_const=100,
                                                         learning_rate=lr)
